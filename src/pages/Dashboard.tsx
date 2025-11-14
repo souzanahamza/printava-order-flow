@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 const stats = [
   {
     title: "Total Orders",
-    value: "156",
+    value: "188",
     icon: ShoppingCart,
     change: "+12% from last month",
   },
