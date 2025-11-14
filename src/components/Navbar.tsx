@@ -6,9 +6,9 @@ import printavaLogo from "@/assets/printava-logo.png";
 export function Navbar() {
   return <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
       <div className="flex h-16 items-center px-4 gap-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 rounded-md bg-gray-300">
           <img src={printavaLogo} alt="Printava" className="max-h-12 w-auto " />
-          <span className="font-bold text-xl text-foreground">Printava</span>
+          
         </div>
         
         <div className="ml-auto flex items-center gap-2">
