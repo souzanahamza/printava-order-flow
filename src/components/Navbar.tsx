@@ -7,7 +7,7 @@ export function Navbar() {
   return <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
       <div className="flex h-16 items-center px-4 gap-4">
         <div className="flex items-center gap-2">
-          <img src={printavaLogo} alt="Printava" className="h-8 w-auto" />
+          <img src={printavaLogo} alt="Printava" className="max-h-12 w-auto" />
           <span className="font-bold text-xl text-foreground">Printava</span>
         </div>
         
