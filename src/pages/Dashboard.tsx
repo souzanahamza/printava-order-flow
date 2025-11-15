@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, Clock, CheckCircle, TrendingUp } from "lucide-react";
-import { StatusBadge, OrderStatus } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -151,7 +151,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                   <div className="flex flex-col sm:items-end gap-2">
-                    <StatusBadge status={order.status.toLowerCase() as OrderStatus} />
+                    <StatusBadge status={order.status} />
                     <span className="text-xs text-muted-foreground">
                       {new Date(order.delivery_date).toLocaleDateString()}
                     </span>
