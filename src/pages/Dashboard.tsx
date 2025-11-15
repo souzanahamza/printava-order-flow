@@ -1,6 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, Clock, CheckCircle, TrendingUp } from "lucide-react";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusBadge, OrderStatus } from "@/components/StatusBadge";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 const stats = [{
   title: "Total Orders",
   value: "188",
@@ -22,38 +25,38 @@ const stats = [{
   icon: TrendingUp,
   change: "+8% from last month"
 }];
-const recentOrders = [{
-  id: "ORD-1234",
-  client: "Acme Corp",
-  product: "Business Cards",
-  status: "production" as const,
-  date: "2025-11-14"
-}, {
-  id: "ORD-1235",
-  client: "Tech Start",
-  product: "Banners",
-  status: "design" as const,
-  date: "2025-11-14"
-}, {
-  id: "ORD-1236",
-  client: "Local Cafe",
-  product: "Menus",
-  status: "shipping" as const,
-  date: "2025-11-13"
-}, {
-  id: "ORD-1237",
-  client: "Real Estate Co",
-  product: "Flyers",
-  status: "new" as const,
-  date: "2025-11-13"
-}, {
-  id: "ORD-1238",
-  client: "Fashion Brand",
-  product: "Catalogs",
-  status: "delivered" as const,
-  date: "2025-11-12"
-}];
+type OrderWithDetails = {
+  id: string;
+  client_name: string;
+  delivery_date: string;
+  status: string;
+  total_price: number;
+  order_items: Array<{
+    product: {
+      name_en: string;
+    };
+  }>;
+};
 const Dashboard = () => {
+  const { data: orders, isLoading } = useQuery({
+    queryKey: ["recent-orders"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(`
+          *,
+          order_items(
+            product:products(name_en)
+          )
+        `)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      return data as OrderWithDetails[];
+    },
+  });
+
   return <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -78,19 +81,39 @@ const Dashboard = () => {
           <CardTitle>Recent Orders</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {recentOrders.map(order => <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                <div className="space-y-1 mb-2 sm:mb-0">
-                  <div className="font-semibold text-foreground">{order.id}</div>
-                  <div className="text-sm text-muted-foreground">{order.client}</div>
-                  <div className="text-sm text-muted-foreground">{order.product}</div>
+          {isLoading ? (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+          ) : orders && orders.length > 0 ? (
+            <div className="space-y-4">
+              {orders.map(order => (
+                <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+                  <div className="space-y-1 mb-2 sm:mb-0">
+                    <div className="font-semibold text-foreground">{order.id.slice(0, 8)}</div>
+                    <div className="text-sm text-muted-foreground">{order.client_name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {order.order_items[0]?.product?.name_en || "No items"}
+                      {order.order_items.length > 1 && ` +${order.order_items.length - 1} more`}
+                    </div>
+                    <div className="text-sm font-semibold text-foreground">
+                      ${order.total_price?.toFixed(2) || "0.00"}
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:items-end gap-2">
+                    <StatusBadge status={order.status.toLowerCase() as OrderStatus} />
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(order.delivery_date).toLocaleDateString()}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col sm:items-end gap-2">
-                  <StatusBadge status={order.status} />
-                  <span className="text-xs text-muted-foreground">{order.date}</span>
-                </div>
-              </div>)}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">No orders found</p>
+          )}
         </CardContent>
       </Card>
     </div>;
