@@ -15,7 +15,11 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Search, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 
 interface OrderStatus {
@@ -69,7 +73,7 @@ const Orders = () => {
         .from("order_statuses")
         .select("*")
         .order("sort_order");
-      
+
       if (error) throw error;
       return data as OrderStatus[];
     },
@@ -81,7 +85,8 @@ const Orders = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select(`
+        .select(
+          `
           *,
           pricing_tier:pricing_tiers(name, label),
           order_items(
@@ -98,7 +103,8 @@ const Orders = () => {
               product_code
             )
           )
-        `)
+        `
+        )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -107,7 +113,13 @@ const Orders = () => {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ orderId, newStatus }: { orderId: string; newStatus: string }) => {
+    mutationFn: async ({
+      orderId,
+      newStatus,
+    }: {
+      orderId: string;
+      newStatus: string;
+    }) => {
       const { error } = await supabase
         .from("orders")
         .update({ status: newStatus })
@@ -125,7 +137,9 @@ const Orders = () => {
   });
 
   const filteredOrders = orders?.filter((order) => {
-    const matchesStatus = statusFilter === "all" || order.status?.toLowerCase() === statusFilter.toLowerCase();
+    const matchesStatus =
+      statusFilter === "all" ||
+      order.status?.toLowerCase() === statusFilter.toLowerCase();
     const matchesSearch =
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.client_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -153,7 +167,9 @@ const Orders = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Orders</h1>
-        <p className="text-muted-foreground">Manage and track all your print orders</p>
+        <p className="text-muted-foreground">
+          Manage and track all your print orders
+        </p>
       </div>
 
       <Card>
@@ -211,15 +227,25 @@ const Orders = () => {
                         <CardTitle className="text-lg font-semibold">
                           {order.client_name}
                         </CardTitle>
-                        <StatusBadge 
-                          status={order.status} 
-                        />
+                        <StatusBadge status={order.status} />
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1">
-                        <p>Order ID: <span className="font-mono">{order.id.slice(0, 8)}</span></p>
-                        <p>Delivery: {new Date(order.delivery_date).toLocaleDateString()}</p>
+                        <p>
+                          Order ID:{" "}
+                          <span className="font-mono">
+                            {order.id.slice(0, 8)}
+                          </span>
+                        </p>
+                        <p>
+                          Delivery:{" "}
+                          {new Date(order.delivery_date).toLocaleDateString()}
+                        </p>
                         {order.pricing_tier && (
-                          <p>Tier: {order.pricing_tier.label || order.pricing_tier.name}</p>
+                          <p>
+                            Tier:{" "}
+                            {order.pricing_tier.label ||
+                              order.pricing_tier.name}
+                          </p>
                         )}
                         <p className="font-semibold text-foreground">
                           Total: ${order.total_price?.toFixed(2) || "0.00"}
@@ -229,7 +255,9 @@ const Orders = () => {
                     <div className="flex items-center gap-2">
                       <Select
                         value={order.status}
-                        onValueChange={(value) => handleStatusUpdate(order.id, value)}
+                        onValueChange={(value) =>
+                          handleStatusUpdate(order.id, value)
+                        }
                       >
                         <SelectTrigger className="w-[180px]">
                           <SelectValue />
@@ -243,13 +271,18 @@ const Orders = () => {
                         </SelectContent>
                       </Select>
                       <div className="text-right">
-  <CollapsibleTrigger asChild>
-    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
-      {expandedOrders.has(order.id) ? "Hide Details" : "Show Details"}
-    </Button>
-  </CollapsibleTrigger>
-</div>
-
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-muted-foreground"
+                          >
+                            {expandedOrders.has(order.id)
+                              ? "Hide Details"
+                              : "Show Details"}
+                          </Button>
+                        </CollapsibleTrigger>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
@@ -272,7 +305,9 @@ const Orders = () => {
                                 />
                               )}
                               <div className="flex-1 space-y-1">
-                                <p className="font-medium">{item.product.name_en}</p>
+                                <p className="font-medium">
+                                  {item.product.name_en}
+                                </p>
                                 <p className="text-sm text-muted-foreground">
                                   SKU: {item.product.sku}
                                 </p>
@@ -283,8 +318,18 @@ const Orders = () => {
                                 )}
                               </div>
                               <div className="text-sm space-y-1 sm:text-right">
-                                <p>Quantity: <span className="font-medium">{item.quantity}</span></p>
-                                <p>Unit Price: <span className="font-medium">${item.unit_price.toFixed(2)}</span></p>
+                                <p>
+                                  Quantity:{" "}
+                                  <span className="font-medium">
+                                    {item.quantity}
+                                  </span>
+                                </p>
+                                <p>
+                                  Unit Price:{" "}
+                                  <span className="font-medium">
+                                    ${item.unit_price.toFixed(2)}
+                                  </span>
+                                </p>
                                 <p className="font-semibold text-foreground">
                                   Total: ${item.item_total.toFixed(2)}
                                 </p>
@@ -295,13 +340,19 @@ const Orders = () => {
                       </div>
                       {(order.notes || order.email || order.phone) && (
                         <div className="border-t pt-4">
-                          <h4 className="font-semibold mb-2">Contact & Notes</h4>
+                          <h4 className="font-semibold mb-2">
+                            Contact & Notes
+                          </h4>
                           <div className="text-sm text-muted-foreground space-y-1">
                             <p>Email: {order.email}</p>
                             {order.phone && <p>Phone: {order.phone}</p>}
-                            {order.delivery_method && <p>Delivery: {order.delivery_method}</p>}
+                            {order.delivery_method && (
+                              <p>Delivery: {order.delivery_method}</p>
+                            )}
                             {order.notes && (
-                              <p className="mt-2 text-foreground">Notes: {order.notes}</p>
+                              <p className="mt-2 text-foreground">
+                                Notes: {order.notes}
+                              </p>
                             )}
                           </div>
                         </div>
