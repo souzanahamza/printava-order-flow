@@ -242,15 +242,20 @@ const Orders = () => {
                           ))}
                         </SelectContent>
                       </Select>
-                      <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          {expandedOrders.has(order.id) ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </CollapsibleTrigger>
+                     <Button variant="ghost" size="sm" className="flex items-center gap-1">
+  {expandedOrders.has(order.id) ? (
+    <>
+      <ChevronUp className="h-4 w-4" />
+      <span>Hide Details</span>
+    </>
+  ) : (
+    <>
+      <ChevronDown className="h-4 w-4" />
+      <span>Show Details</span>
+    </>
+  )}
+</Button>
+
                     </div>
                   </div>
                 </CardHeader>
