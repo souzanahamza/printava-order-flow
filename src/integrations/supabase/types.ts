@@ -59,6 +59,27 @@ export type Database = {
           },
         ]
       }
+      order_statuses: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          sort_order: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           client_name: string

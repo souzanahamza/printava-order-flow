@@ -11,11 +11,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge, OrderStatus } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Search, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Label } from "@/components/ui/label";
+
+interface OrderStatus {
+  id: string;
+  name: string;
+  sort_order: number;
+}
 
 type OrderWithDetails = {
   id: string;
@@ -54,6 +61,21 @@ const Orders = () => {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
+  // Fetch order statuses
+  const { data: statuses } = useQuery({
+    queryKey: ["orderStatuses"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("order_statuses")
+        .select("*")
+        .order("sort_order");
+      
+      if (error) throw error;
+      return data as OrderStatus[];
+    },
+  });
+
+  // Fetch orders with all details
   const { data: orders, isLoading } = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
@@ -103,7 +125,7 @@ const Orders = () => {
   });
 
   const filteredOrders = orders?.filter((order) => {
-    const matchesStatus = statusFilter === "all" || order.status.toLowerCase() === statusFilter;
+    const matchesStatus = statusFilter === "all" || order.status?.toLowerCase() === statusFilter.toLowerCase();
     const matchesSearch =
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.client_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -154,11 +176,11 @@ const Orders = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="design">Design Approval</SelectItem>
-              <SelectItem value="production">In Production</SelectItem>
-              <SelectItem value="shipping">Shipping</SelectItem>
-              <SelectItem value="delivered">Delivered</SelectItem>
+              {statuses?.map((status) => (
+                <SelectItem key={status.id} value={status.name.toLowerCase()}>
+                  {status.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </CardContent>
@@ -190,7 +212,7 @@ const Orders = () => {
                           {order.client_name}
                         </CardTitle>
                         <StatusBadge 
-                          status={order.status.toLowerCase() as OrderStatus} 
+                          status={order.status} 
                         />
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1">
@@ -213,11 +235,11 @@ const Orders = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="New">New</SelectItem>
-                          <SelectItem value="design">Design Approval</SelectItem>
-                          <SelectItem value="production">In Production</SelectItem>
-                          <SelectItem value="shipping">Shipping</SelectItem>
-                          <SelectItem value="delivered">Delivered</SelectItem>
+                          {statuses?.map((status) => (
+                            <SelectItem key={status.id} value={status.name}>
+                              {status.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <CollapsibleTrigger asChild>
