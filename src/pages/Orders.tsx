@@ -271,27 +271,29 @@ const Orders = () => {
                         </SelectContent>
                       </Select>
                       <div className="text-right">
-                        <Button
-                          variant={
-                            expandedOrders.has(order.id)
-                              ? "secondary"
-                              : "outline"
-                          }
-                          size="sm"
-                          className="flex items-center gap-1 text-sm"
-                        >
-                          {expandedOrders.has(order.id) ? (
-                            <>
-                              <ChevronUp className="h-4 w-4" />
-                              Hide Details
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4" />
-                              Show Details
-                            </>
-                          )}
-                        </Button>
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant={
+                              expandedOrders.has(order.id)
+                                ? "secondary"
+                                : "outline"
+                            }
+                            size="sm"
+                            className="flex items-center gap-1 text-sm"
+                          >
+                            {expandedOrders.has(order.id) ? (
+                              <>
+                                <ChevronUp className="h-4 w-4" />
+                                Hide Details
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4" />
+                                Show Details
+                              </>
+                            )}
+                          </Button>
+                        </CollapsibleTrigger>
                       </div>
                     </div>
                   </div>
