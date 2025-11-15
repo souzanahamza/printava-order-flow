@@ -4,27 +4,7 @@ import { StatusBadge, OrderStatus } from "@/components/StatusBadge";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-const stats = [{
-  title: "Total Orders",
-  value: "188",
-  icon: ShoppingCart,
-  change: "+12% from last month"
-}, {
-  title: "Pending",
-  value: "23",
-  icon: Clock,
-  change: "Awaiting action"
-}, {
-  title: "Completed",
-  value: "118",
-  icon: CheckCircle,
-  change: "This month"
-}, {
-  title: "Revenue",
-  value: "$12,450",
-  icon: TrendingUp,
-  change: "+8% from last month"
-}];
+import { useMemo } from "react";
 type OrderWithDetails = {
   id: string;
   client_name: string;
@@ -38,7 +18,19 @@ type OrderWithDetails = {
   }>;
 };
 const Dashboard = () => {
-  const { data: orders, isLoading } = useQuery({
+  const { data: allOrders, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["all-orders-stats"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, status, total_price, created_at");
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: recentOrders, isLoading: isLoadingRecent } = useQuery({
     queryKey: ["recent-orders"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -57,6 +49,43 @@ const Dashboard = () => {
     },
   });
 
+  const stats = useMemo(() => {
+    if (!allOrders) return [];
+
+    const totalOrders = allOrders.length;
+    const pendingOrders = allOrders.filter(o => o.status?.toLowerCase() === "new").length;
+    const completedOrders = allOrders.filter(o => o.status?.toLowerCase() === "delivered").length;
+    const totalRevenue = allOrders.reduce((sum, o) => sum + (o.total_price || 0), 0);
+    const inProductionOrders = allOrders.filter(o => o.status?.toLowerCase() === "production").length;
+
+    return [
+      {
+        title: "Total Orders",
+        value: totalOrders.toString(),
+        icon: ShoppingCart,
+        change: `${completedOrders} completed`
+      },
+      {
+        title: "Pending",
+        value: pendingOrders.toString(),
+        icon: Clock,
+        change: "Awaiting action"
+      },
+      {
+        title: "In Production",
+        value: inProductionOrders.toString(),
+        icon: CheckCircle,
+        change: "Currently printing"
+      },
+      {
+        title: "Revenue",
+        value: `$${totalRevenue.toFixed(2)}`,
+        icon: TrendingUp,
+        change: `From ${totalOrders} orders`
+      }
+    ];
+  }, [allOrders]);
+
   return <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -64,16 +93,35 @@ const Dashboard = () => {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map(stat => <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.change}</p>
-            </CardContent>
-          </Card>)}
+        {isLoadingStats ? (
+          <>
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-4" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-8 w-16 mb-2" />
+                  <Skeleton className="h-3 w-32" />
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        ) : (
+          stats.map(stat => (
+            <Card key={stat.title}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <stat.icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <p className="text-xs text-muted-foreground">{stat.change}</p>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       <Card>
@@ -81,15 +129,15 @@ const Dashboard = () => {
           <CardTitle>Recent Orders</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoadingRecent ? (
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="h-24 w-full" />
               ))}
             </div>
-          ) : orders && orders.length > 0 ? (
+          ) : recentOrders && recentOrders.length > 0 ? (
             <div className="space-y-4">
-              {orders.map(order => (
+              {recentOrders.map(order => (
                 <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
                   <div className="space-y-1 mb-2 sm:mb-0">
                     <div className="font-semibold text-foreground">{order.id.slice(0, 8)}</div>
