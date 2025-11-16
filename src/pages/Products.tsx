@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Package } from "lucide-react";
+import { Plus, Package, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductFormDialog } from "@/components/ProductFormDialog";
+import { BulkImportDialog } from "@/components/BulkImportDialog";
 import type { Tables } from "@/integrations/supabase/types";
 
 type Product = Tables<"products">;
@@ -13,6 +14,7 @@ type Product = Tables<"products">;
 const Products = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products"],
@@ -51,6 +53,10 @@ const Products = () => {
             Manage your product catalog
           </p>
         </div>
+        <Button onClick={() => setIsBulkImportOpen(true)} variant="outline">
+          <Upload className="h-4 w-4 mr-2" />
+          Bulk Import
+        </Button>
       </div>
 
       {isLoading ? (
@@ -153,6 +159,11 @@ const Products = () => {
         product={selectedProduct}
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
+      />
+
+      <BulkImportDialog
+        open={isBulkImportOpen}
+        onOpenChange={setIsBulkImportOpen}
       />
     </div>
   );
