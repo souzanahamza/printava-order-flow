@@ -26,10 +26,10 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Orders", url: "/orders", icon: ShoppingCart },
   { title: "New Order", url: "/new-order", icon: Plus },
-  { title: "Design Approvals", url: "/design-approvals", icon: CheckSquare },
-  { title: "Production", url: "/production", icon: Factory },
-  { title: "Shipping", url: "/shipping", icon: Truck },
-  { title: "Users Management", url: "/users", icon: Users },
+  // { title: "Design Approvals", url: "/design-approvals", icon: CheckSquare },
+  // { title: "Production", url: "/production", icon: Factory },
+  // { title: "Shipping", url: "/shipping", icon: Truck },
+  // { title: "Users Management", url: "/users", icon: Users },
 ];
 
 export function AppSidebar() {
