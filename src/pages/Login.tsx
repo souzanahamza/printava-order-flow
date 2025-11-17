@@ -46,8 +46,8 @@ export default function Login() {
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
-          <div className="flex justify-center gap-2 rounded-md bg-gray-300">
-            <img src={printavaLogo} alt="Printava" className="h-16 w-auto" />
+          <div className="flex justify-center ">
+            <img src={printavaLogo} alt="Printava" className="h-16 w-auto gap-2 rounded-md bg-gray-300" />
           </div>
           <CardTitle className="text-2xl text-center">Welcome Back</CardTitle>
           <CardDescription className="text-center">
