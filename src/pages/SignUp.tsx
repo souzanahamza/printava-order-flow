@@ -61,7 +61,7 @@ export default function SignUp() {
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
-          <div className="flex justify-center bg-gray-300">
+          <div className="flex justify-center gap-2 rounded-md bg-gray-300">
             <img src={printavaLogo} alt="Printava" className="h-16 w-auto" />
           </div>
 
