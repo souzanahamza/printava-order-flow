@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -28,6 +29,7 @@ export const ProductFormDialog = ({
   onOpenChange,
 }: ProductFormDialogProps) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     sku: "",
@@ -108,7 +110,10 @@ export const ProductFormDialog = ({
         toast.success("Product updated successfully");
       } else {
         // Create new product
-        const { error } = await supabase.from("products").insert(productData);
+        const { error } = await supabase.from("products").insert({
+          ...productData,
+          company_id: user?.id,
+        });
 
         if (error) throw error;
         toast.success("Product created successfully");

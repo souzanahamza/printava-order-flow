@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Upload, Download, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -38,6 +39,7 @@ export const BulkImportDialog = ({
   onOpenChange,
 }: BulkImportDialogProps) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -124,6 +126,7 @@ SKU002,PC002,منتج آخر,Another Product,Category B,149.99,https://example.c
               stock_quantity: row.stock_quantity?.trim()
                 ? parseFloat(row.stock_quantity)
                 : null,
+              company_id: user?.id,
             });
           }
         });

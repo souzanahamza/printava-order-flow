@@ -14,8 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      companies: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string | null
+          owner_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          name?: string | null
+          owner_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          owner_id?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
+          company_id: string | null
           created_at: string | null
           id: string
           item_total: number
@@ -25,6 +47,7 @@ export type Database = {
           unit_price: number
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           id?: string
           item_total: number
@@ -34,6 +57,7 @@ export type Database = {
           unit_price: number
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           id?: string
           item_total?: number
@@ -61,18 +85,21 @@ export type Database = {
       }
       order_statuses: {
         Row: {
+          company_id: string | null
           created_at: string | null
           id: string
           name: string
           sort_order: number
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           id?: string
           name: string
           sort_order: number
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           id?: string
           name?: string
@@ -83,6 +110,7 @@ export type Database = {
       orders: {
         Row: {
           client_name: string
+          company_id: string | null
           created_at: string | null
           delivery_date: string
           delivery_method: string | null
@@ -96,6 +124,7 @@ export type Database = {
         }
         Insert: {
           client_name: string
+          company_id?: string | null
           created_at?: string | null
           delivery_date: string
           delivery_method?: string | null
@@ -109,6 +138,7 @@ export type Database = {
         }
         Update: {
           client_name?: string
+          company_id?: string | null
           created_at?: string | null
           delivery_date?: string
           delivery_method?: string | null
@@ -132,18 +162,21 @@ export type Database = {
       }
       pricing_tiers: {
         Row: {
+          company_id: string | null
           id: string
           label: string | null
           markup_percent: number
           name: string
         }
         Insert: {
+          company_id?: string | null
           id?: string
           label?: string | null
           markup_percent: number
           name: string
         }
         Update: {
+          company_id?: string | null
           id?: string
           label?: string | null
           markup_percent?: number
@@ -154,6 +187,7 @@ export type Database = {
       products: {
         Row: {
           category: string
+          company_id: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -167,6 +201,7 @@ export type Database = {
         }
         Insert: {
           category: string
+          company_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -180,6 +215,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          company_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string

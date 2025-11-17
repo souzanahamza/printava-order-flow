@@ -20,6 +20,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { CalendarIcon, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ interface OrderItem {
 
 const NewOrder = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [deliveryDate, setDeliveryDate] = useState<Date>();
   const [products, setProducts] = useState<Product[]>([]);
   const [pricingTiers, setPricingTiers] = useState<PricingTier[]>([]);
@@ -211,6 +213,7 @@ const NewOrder = () => {
           notes: formData.notes,
           total_price: calculateTotal(),
           status: "New",
+          company_id: user?.id,
         })
         .select()
         .single();
@@ -224,6 +227,7 @@ const NewOrder = () => {
         quantity: item.quantity,
         unit_price: item.unit_price,
         item_total: item.item_total,
+        company_id: user?.id,
       }));
 
       const { error: itemsError } = await supabase

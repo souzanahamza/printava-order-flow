@@ -1,14 +1,25 @@
-import { Bell, User } from "lucide-react";
+import { Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import printavaLogo from "@/assets/printava-logo.png";
+
 export function Navbar() {
-  return <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
       <div className="flex h-16 items-center px-4 gap-4">
         <div className="flex items-center gap-2 rounded-md bg-gray-300">
-          <img src={printavaLogo} alt="Printava" className="max-h-12 w-auto " />
-          
+          <img src={printavaLogo} alt="Printava" className="max-h-12 w-auto" />
         </div>
         
         <div className="ml-auto flex items-center gap-2">
@@ -26,16 +37,22 @@ export function Navbar() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">My Account</p>
+                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Log out</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
-    </header>;
+    </header>
+  );
 }
