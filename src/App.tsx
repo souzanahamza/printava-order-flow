@@ -16,6 +16,9 @@ import Shipping from "./pages/Shipping";
 import UsersManagement from "./pages/UsersManagement";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import Team from "./pages/Team";
+import StatusSettings from "./pages/StatusSettings";
+import PricingSettings from "./pages/PricingSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +41,9 @@ const App = () => (
             <Route path="/production" element={<ProtectedRoute><Layout><Production /></Layout></ProtectedRoute>} />
             <Route path="/shipping" element={<ProtectedRoute><Layout><Shipping /></Layout></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><Layout><UsersManagement /></Layout></ProtectedRoute>} />
+            <Route path="/team" element={<ProtectedRoute><Layout><Team /></Layout></ProtectedRoute>} />
+            <Route path="/settings/statuses" element={<ProtectedRoute><Layout><StatusSettings /></Layout></ProtectedRoute>} />
+            <Route path="/settings/pricing" element={<ProtectedRoute><Layout><PricingSettings /></Layout></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

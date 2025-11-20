@@ -1,16 +1,23 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ShoppingCart, Clock, CheckCircle, TrendingUp } from "lucide-react";
-import { StatusBadge } from "@/components/StatusBadge";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { OrderDetails } from "@/components/OrderDetails";
+import { OrderCard } from "@/components/OrderCard";
+import { useOrderStatuses } from "@/hooks/useOrderStatuses";
 type OrderWithDetails = {
   id: string;
   client_name: string;
+  email: string;
   delivery_date: string;
   status: string;
   total_price: number;
+  pricing_tier?: {
+    name: string;
+    label: string;
+  } | null;
   order_items: Array<{
     product: {
       name_en: string;
@@ -18,6 +25,11 @@ type OrderWithDetails = {
   }>;
 };
 const Dashboard = () => {
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  const { data: statuses } = useOrderStatuses();
+
   const {
     data: allOrders,
     isLoading: isLoadingStats
@@ -43,6 +55,7 @@ const Dashboard = () => {
         error
       } = await supabase.from("orders").select(`
           *,
+          pricing_tier:pricing_tiers(name, label),
           order_items(
             product:products(name_en)
           )
@@ -118,30 +131,23 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           {isLoadingRecent ? <div className="space-y-4">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full" />)}
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full" />)}
             </div> : recentOrders && recentOrders.length > 0 ? <div className="space-y-4">
-              {recentOrders.map(order => <div key={order.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                  <div className="space-y-1 mb-2 sm:mb-0">
-                    <div className="font-semibold text-foreground">{order.id.slice(0, 8)}</div>
-                    <div className="text-sm text-muted-foreground">{order.client_name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {order.order_items[0]?.product?.name_en || "No items"}
-                      {order.order_items.length > 1 && ` +${order.order_items.length - 1} more`}
-                    </div>
-                    <div className="text-sm font-semibold text-foreground">
-                      ${order.total_price?.toFixed(2) || "0.00"}
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:items-end gap-2">
-                    <StatusBadge status={order.status} />
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(order.delivery_date).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>)}
+              {recentOrders.map(order => <OrderCard key={order.id} id={order.id} client_name={order.client_name} email={order.email} delivery_date={order.delivery_date} status={order.status} statusColor={statuses?.find(s => s.name === order.status)?.color} total_price={order.total_price} pricing_tier={order.pricing_tier} onClick={() => {
+                  setSelectedOrderId(order.id);
+                  setIsDetailsOpen(true);
+                }} />)}
             </div> : <p className="text-center text-muted-foreground py-8">No orders found</p>}
         </CardContent>
       </Card>
+
+      {selectedOrderId && (
+        <OrderDetails
+          orderId={selectedOrderId}
+          open={isDetailsOpen}
+          onOpenChange={setIsDetailsOpen}
+        />
+      )}
     </div>;
 };
 export default Dashboard;

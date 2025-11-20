@@ -35,6 +35,102 @@ export type Database = {
         }
         Relationships: []
       }
+      order_attachments: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string
+          file_url: string
+          id: string
+          order_id: string
+          uploader_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type: string
+          file_url: string
+          id?: string
+          order_id: string
+          uploader_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string
+          file_url?: string
+          id?: string
+          order_id?: string
+          uploader_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_attachments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_attachments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_comments: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string | null
+          id: string
+          is_internal: boolean | null
+          order_id: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          is_internal?: boolean | null
+          order_id: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          is_internal?: boolean | null
+          order_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_comments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_comments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           company_id: string | null
@@ -85,23 +181,29 @@ export type Database = {
       }
       order_statuses: {
         Row: {
+          color: string | null
           company_id: string | null
           created_at: string | null
           id: string
+          is_default: boolean | null
           name: string
           sort_order: number
         }
         Insert: {
+          color?: string | null
           company_id?: string | null
           created_at?: string | null
           id?: string
+          is_default?: boolean | null
           name: string
           sort_order: number
         }
         Update: {
+          color?: string | null
           company_id?: string | null
           created_at?: string | null
           id?: string
+          is_default?: boolean | null
           name?: string
           sort_order?: number
         }
@@ -164,6 +266,7 @@ export type Database = {
         Row: {
           company_id: string | null
           id: string
+          is_default: boolean | null
           label: string | null
           markup_percent: number
           name: string
@@ -171,6 +274,7 @@ export type Database = {
         Insert: {
           company_id?: string | null
           id?: string
+          is_default?: boolean | null
           label?: string | null
           markup_percent: number
           name: string
@@ -178,6 +282,7 @@ export type Database = {
         Update: {
           company_id?: string | null
           id?: string
+          is_default?: boolean | null
           label?: string | null
           markup_percent?: number
           name?: string
@@ -229,12 +334,45 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          role: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id: string
+          role?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_my_company_id: { Args: never; Returns: string }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

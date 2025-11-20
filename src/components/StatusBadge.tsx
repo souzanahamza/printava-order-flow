@@ -3,31 +3,36 @@ import { cn } from "@/lib/utils";
 
 interface StatusBadgeProps {
   status: string;
+  color?: string;
   className?: string;
 }
 
-const getStatusVariant = (status: string): string => {
-  const normalizedStatus = status.toLowerCase().replace(/\s+/g, "-");
-  
-  const statusMap: Record<string, string> = {
-    "new": "bg-status-new text-status-new-foreground",
-    "in-design": "bg-status-design text-status-design-foreground",
-    "design-approval": "bg-status-design text-status-design-foreground",
-    "in-production": "bg-status-production text-status-production-foreground",
-    "shipping": "bg-status-shipping text-status-shipping-foreground",
-    "delivered": "bg-status-delivered text-status-delivered-foreground",
-    "canceled": "bg-destructive text-destructive-foreground",
-  };
-  
-  return statusMap[normalizedStatus] || "bg-muted text-muted-foreground";
-};
+export function StatusBadge({ status, color, className }: StatusBadgeProps) {
+  const textColor = color ? getContrastColor(color) : undefined;
 
-export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const variant = getStatusVariant(status);
-  
   return (
-    <Badge className={cn(variant, "font-medium", className)}>
+    <Badge 
+      className={cn("font-medium border-transparent", className)}
+      style={color ? { backgroundColor: color, color: textColor } : undefined}
+    >
       {status}
     </Badge>
   );
+}
+
+// يحدد لون الخط: أبيض تقريبًا دائمًا إلا إذا كان اللون فاتح جدًا
+function getContrastColor(hexColor: string): string {
+  if (!/^#([A-Fa-f0-9]{6})$/.test(hexColor)) {
+    return "#ffffff"; // fallback آمن
+  }
+
+  const r = parseInt(hexColor.slice(1, 3), 16);
+  const g = parseInt(hexColor.slice(3, 5), 16);
+  const b = parseInt(hexColor.slice(5, 7), 16);
+
+  // relative luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  // العتبة الجديدة: حتى 0.80 نخلي النص أبيض (كان 0.5 بالنسخة القديمة)
+  return luminance > 0.7 ? "#000000" : "#ffffff";
 }

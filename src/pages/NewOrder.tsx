@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -21,7 +22,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { CalendarIcon, Plus, Trash2 } from "lucide-react";
+import { useUserRole } from "@/hooks/useUserRole";
+import { usePricingTiers } from "@/hooks/usePricingTiers";
+import { CalendarIcon, Plus, Trash2, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -41,13 +44,6 @@ interface Product {
   unit_price: number;
 }
 
-interface PricingTier {
-  id: string;
-  name: string;
-  label: string;
-  markup_percent: number;
-}
-
 interface OrderItem {
   product_id: string;
   product_name: string;
@@ -60,13 +56,16 @@ interface OrderItem {
 const NewOrder = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { companyId } = useUserRole();
+  const { data: pricingTiers } = usePricingTiers();
   const [deliveryDate, setDeliveryDate] = useState<Date>();
   const [products, setProducts] = useState<Product[]>([]);
-  const [pricingTiers, setPricingTiers] = useState<PricingTier[]>([]);
-  const [selectedTier, setSelectedTier] = useState<PricingTier | null>(null);
+  const [selectedTier, setSelectedTier] = useState<any>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openProductPopover, setOpenProductPopover] = useState<number | null>(null);
+  const [requiresDesign, setRequiresDesign] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const [formData, setFormData] = useState({
     client_name: "",
@@ -77,19 +76,18 @@ const NewOrder = () => {
     notes: "",
   });
 
-  // Fetch products and pricing tiers
+  // Fetch products
   useEffect(() => {
-    const fetchData = async () => {
-      const [productsRes, tiersRes] = await Promise.all([
-        supabase.from("products").select("*").order("name_en"),
-        supabase.from("pricing_tiers").select("*").order("name"),
-      ]);
-
-      if (productsRes.data) setProducts(productsRes.data);
-      if (tiersRes.data) setPricingTiers(tiersRes.data);
+    const fetchProducts = async () => {
+      const { data } = await supabase
+        .from("products")
+        .select("*")
+        .order("name_en");
+      
+      if (data) setProducts(data);
     };
 
-    fetchData();
+    fetchProducts();
   }, []);
 
   const handleChange = (
@@ -147,7 +145,7 @@ const NewOrder = () => {
     setOrderItems(updatedItems);
   };
 
-  const recalculatePrices = (tier: PricingTier | null) => {
+  const recalculatePrices = (tier: any) => {
     if (orderItems.length === 0) return;
 
     const updatedItems = orderItems.map((item) => {
@@ -179,6 +177,12 @@ const NewOrder = () => {
     return orderItems.reduce((sum, item) => sum + item.item_total, 0);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(Array.from(e.target.files));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -200,6 +204,9 @@ const NewOrder = () => {
     setIsSubmitting(true);
 
     try {
+      // Determine initial status based on design requirement
+      const initialStatus = requiresDesign ? "In Design" : "Pending Payment";
+
       // Insert order
       const { data: order, error: orderError } = await supabase
         .from("orders")
@@ -212,8 +219,8 @@ const NewOrder = () => {
           pricing_tier_id: formData.pricing_tier_id || null,
           notes: formData.notes,
           total_price: calculateTotal(),
-          status: "New",
-          company_id: user?.id,
+          status: initialStatus,
+          company_id: companyId,
         })
         .select()
         .single();
@@ -227,7 +234,7 @@ const NewOrder = () => {
         quantity: item.quantity,
         unit_price: item.unit_price,
         item_total: item.item_total,
-        company_id: user?.id,
+        company_id: companyId,
       }));
 
       const { error: itemsError } = await supabase
@@ -235,6 +242,40 @@ const NewOrder = () => {
         .insert(itemsToInsert);
 
       if (itemsError) throw itemsError;
+
+      // Upload files if any
+      if (selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${companyId}/${order.id}/${Date.now()}_${file.name}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('order-files')
+            .upload(fileName, file);
+
+          if (uploadError) {
+            console.error('File upload error:', uploadError);
+            continue;
+          }
+
+          // Insert attachment record
+          const { error: attachmentError } = await supabase
+            .from('order_attachments')
+            .insert({
+              order_id: order.id,
+              file_name: file.name,
+              file_url: fileName,
+              file_type: 'client_reference',
+              file_size: file.size,
+              uploader_id: user?.id,
+              company_id: companyId,
+            });
+
+          if (attachmentError) {
+            console.error('Attachment record error:', attachmentError);
+          }
+        }
+      }
 
       toast.success("Order created successfully!");
       navigate("/orders");
@@ -363,7 +404,7 @@ const NewOrder = () => {
                     <SelectValue placeholder="Select pricing tier" />
                   </SelectTrigger>
                   <SelectContent>
-                    {pricingTiers.map((tier) => (
+                    {(pricingTiers || []).map((tier) => (
                       <SelectItem key={tier.id} value={tier.id}>
                         {tier.label || tier.name} (+{tier.markup_percent}%)
                       </SelectItem>
@@ -384,6 +425,49 @@ const NewOrder = () => {
                 placeholder="Any special instructions or notes"
                 rows={3}
               />
+            </div>
+
+            {/* Requires Design Toggle */}
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+              <div className="space-y-0.5">
+                <Label htmlFor="requires-design" className="text-base">
+                  Requires Design Service?
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  {requiresDesign
+                    ? "Order will go to Designer first"
+                    : "Order will skip design and go to payment check"}
+                </p>
+              </div>
+              <Switch
+                id="requires-design"
+                checked={requiresDesign}
+                onCheckedChange={setRequiresDesign}
+              />
+            </div>
+
+            {/* File Upload */}
+            <div className="space-y-2">
+              <Label htmlFor="files">
+                {requiresDesign
+                  ? "Reference Assets (Logos, Images)"
+                  : "Ready-to-Print Files"}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="files"
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  className="flex-1"
+                />
+                <Upload className="h-4 w-4 text-muted-foreground" />
+              </div>
+              {selectedFiles.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {selectedFiles.length} file(s) selected
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

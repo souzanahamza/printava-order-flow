@@ -6,16 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Search, ChevronDown, ChevronUp } from "lucide-react";
+import { OrderDetails } from "@/components/OrderDetails";
+import { Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Label } from "@/components/ui/label";
-interface OrderStatus {
-  id: string;
-  name: string;
-  sort_order: number;
-}
+import { useOrderStatuses } from "@/hooks/useOrderStatuses";
 type OrderWithDetails = {
   id: string;
   client_name: string;
@@ -49,23 +44,11 @@ type OrderWithDetails = {
 const Orders = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch order statuses
-  const {
-    data: statuses
-  } = useQuery({
-    queryKey: ["orderStatuses"],
-    queryFn: async () => {
-      const {
-        data,
-        error
-      } = await supabase.from("order_statuses").select("*").order("sort_order");
-      if (error) throw error;
-      return data as OrderStatus[];
-    }
-  });
+  // Fetch order statuses using custom hook
+  const { data: statuses } = useOrderStatuses();
 
   // Fetch orders with all details
   const {
@@ -128,27 +111,18 @@ const Orders = () => {
   });
   const filteredOrders = orders?.filter(order => {
     const matchesStatus = statusFilter === "all" || order.status?.toLowerCase() === statusFilter.toLowerCase();
-    const matchesSearch = order.id.toLowerCase().includes(searchQuery.toLowerCase()) || order.client_name.toLowerCase().includes(searchQuery.toLowerCase()) || order.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = !searchQuery || order.id.toLowerCase().includes(searchQuery.toLowerCase()) || order.client_name.toLowerCase().includes(searchQuery.toLowerCase()) || order.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesSearch;
-  });
-  const toggleOrderExpansion = (orderId: string) => {
-    setExpandedOrders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(orderId)) {
-        newSet.delete(orderId);
-      } else {
-        newSet.add(orderId);
-      }
-      return newSet;
-    });
-  };
+  }) || [];
+
   const handleStatusUpdate = (orderId: string, newStatus: string) => {
     updateStatusMutation.mutate({
       orderId,
       newStatus
     });
   };
-  return <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Orders</h1>
         <p className="text-muted-foreground">
@@ -186,126 +160,88 @@ const Orders = () => {
               </CardContent>
             </Card>)}
         </div> : filteredOrders && filteredOrders.length > 0 ? <div className="space-y-4">
-          {filteredOrders.map(order => <Card key={order.id}>
-              <Collapsible open={expandedOrders.has(order.id)} onOpenChange={() => toggleOrderExpansion(order.id)}>
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <CardTitle className="text-lg font-semibold">
-                          {order.client_name}
-                        </CardTitle>
-                        <StatusBadge status={order.status} />
-                      </div>
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        <p>
-                          Order ID:{" "}
-                          <span className="font-mono">
-                            {order.id.slice(0, 8)}
-                          </span>
-                        </p>
-                        <p>
-                          Delivery:{" "}
-                          {new Date(order.delivery_date).toLocaleDateString()}
-                        </p>
-                        {order.pricing_tier && <p>
-                            Tier:{" "}
-                            {order.pricing_tier.label || order.pricing_tier.name}
-                          </p>}
-                        <p className="font-semibold text-foreground">
-                          Total: ${order.total_price?.toFixed(2) || "0.00"}
-                        </p>
+          {filteredOrders.map(order => (
+            <Card key={order.id} className="mb-4">
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <div className="font-semibold text-lg">{order.client_name}</div>
+                        <div className="text-sm text-muted-foreground">{order.email}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Select value={order.status} onValueChange={value => handleStatusUpdate(order.id, value)}>
+
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Order ID:</span>{" "}
+                        <span className="font-medium">{order.id.slice(0, 8)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Delivery:</span>{" "}
+                        <span className="font-medium">{new Date(order.delivery_date).toLocaleDateString()}</span>
+                      </div>
+                      {order.pricing_tier && (
+                        <div>
+                          <span className="text-muted-foreground">Tier:</span>{" "}
+                          <span className="font-medium">{order.pricing_tier.label || order.pricing_tier.name}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-muted-foreground">Total:</span>{" "}
+                        <span className="font-semibold text-primary">${order.total_price?.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 lg:items-end">
+                    <StatusBadge 
+                      status={order.status} 
+                      color={statuses?.find(s => s.name === order.status)?.color}
+                    />
+                    <div className="flex gap-2">
+                      <Select value={order.status} onValueChange={newStatus => handleStatusUpdate(order.id, newStatus)}>
                         <SelectTrigger className="w-[180px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {statuses?.map(status => <SelectItem key={status.id} value={status.name}>
+                          {statuses?.map(status => (
+                            <SelectItem key={status.id} value={status.name}>
                               {status.name}
-                            </SelectItem>)}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
-                      <div className="text-right">
-                        <CollapsibleTrigger asChild>
-                          <Button variant={expandedOrders.has(order.id) ? "secondary" : "outline"} size="sm" className="flex items-center gap-1 text-sm">
-                            {expandedOrders.has(order.id) ? <>
-                                <ChevronUp className="h-4 w-4" />
-                                Hide Details
-                              </> : <>
-                                <ChevronDown className="h-4 w-4" />
-                                Show Details
-                              </>}
-                          </Button>
-                        </CollapsibleTrigger>
-                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedOrderId(order.id)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                      </Button>
                     </div>
                   </div>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="border-t pt-4">
-                        <h4 className="font-semibold mb-3">Order Items</h4>
-                        <div className="space-y-3">
-                          {order.order_items.map(item => <div key={item.id} className="flex flex-col sm:flex-row gap-4 p-4 bg-muted/50 rounded-lg">
-                              {item.product.image_url && <img src={item.product.image_url} alt={item.product.name_en} className="w-20 h-20 object-cover rounded" />}
-                              <div className="flex-1 space-y-1">
-                                <p className="font-medium">
-                                  {item.product.name_en}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  SKU: {item.product.sku}
-                                </p>
-                                {item.product.product_code && <p className="text-sm text-muted-foreground">
-                                    Code: {item.product.product_code}
-                                  </p>}
-                              </div>
-                              <div className="text-sm space-y-1 sm:text-right">
-                                <p>
-                                  Quantity:{" "}
-                                  <span className="font-medium">
-                                    {item.quantity}
-                                  </span>
-                                </p>
-                                <p>
-                                  Unit Price:{" "}
-                                  <span className="font-medium">
-                                    ${item.unit_price.toFixed(2)}
-                                  </span>
-                                </p>
-                                <p className="font-semibold text-foreground">
-                                  Total: ${item.item_total.toFixed(2)}
-                                </p>
-                              </div>
-                            </div>)}
-                        </div>
-                      </div>
-                      {(order.notes || order.email || order.phone) && <div className="border-t pt-4">
-                          <h4 className="font-semibold mb-2">
-                            Contact & Notes
-                          </h4>
-                          <div className="text-sm text-muted-foreground space-y-1">
-                            <p>Email: {order.email}</p>
-                            {order.phone && <p>Phone: {order.phone}</p>}
-                            {order.delivery_method && <p>Delivery: {order.delivery_method}</p>}
-                            {order.notes && <p className="mt-2 text-foreground">
-                                Notes: {order.notes}
-                              </p>}
-                          </div>
-                        </div>}
-                    </div>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>)}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div> : <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground">No orders found</p>
           </CardContent>
         </Card>}
-    </div>;
+
+      {/* Order Details Dialog */}
+      {selectedOrderId && (
+        <OrderDetails
+          orderId={selectedOrderId}
+          open={!!selectedOrderId}
+          onOpenChange={(open) => !open && setSelectedOrderId(null)}
+        />
+      )}
+    </div>
+  );
 };
+
 export default Orders;
