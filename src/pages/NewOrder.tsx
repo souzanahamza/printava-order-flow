@@ -17,6 +17,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -24,7 +33,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { usePricingTiers } from "@/hooks/usePricingTiers";
-import { CalendarIcon, Plus, Trash2, Upload } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Upload, UserPlus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -53,6 +62,15 @@ interface OrderItem {
   item_total: number;
 }
 
+interface Client {
+  id: string;
+  full_name: string;
+  business_name: string | null;
+  email: string | null;
+  phone: string | null;
+  default_pricing_tier_id: string | null;
+}
+
 const NewOrder = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -60,14 +78,25 @@ const NewOrder = () => {
   const { data: pricingTiers } = usePricingTiers();
   const [deliveryDate, setDeliveryDate] = useState<Date>();
   const [products, setProducts] = useState<Product[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedTier, setSelectedTier] = useState<any>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openProductPopover, setOpenProductPopover] = useState<number | null>(null);
+  const [openClientPopover, setOpenClientPopover] = useState(false);
   const [requiresDesign, setRequiresDesign] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({
+    full_name: "",
+    business_name: "",
+    email: "",
+    phone: "",
+  });
 
   const [formData, setFormData] = useState({
+    client_id: "",
     client_name: "",
     email: "",
     phone: "",
@@ -76,7 +105,7 @@ const NewOrder = () => {
     notes: "",
   });
 
-  // Fetch products
+  // Fetch products and clients
   useEffect(() => {
     const fetchProducts = async () => {
       const { data } = await supabase
@@ -87,7 +116,17 @@ const NewOrder = () => {
       if (data) setProducts(data);
     };
 
+    const fetchClients = async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select("*")
+        .order("full_name");
+      
+      if (data) setClients(data);
+    };
+
     fetchProducts();
+    fetchClients();
   }, []);
 
   const handleChange = (
@@ -97,6 +136,59 @@ const NewOrder = () => {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+  };
+
+  const handleClientSelect = (client: Client) => {
+    setSelectedClient(client);
+    setFormData((prev) => ({
+      ...prev,
+      client_id: client.id,
+      client_name: client.full_name,
+      email: client.email || "",
+      phone: client.phone || "",
+      pricing_tier_id: client.default_pricing_tier_id || prev.pricing_tier_id,
+    }));
+
+    // Auto-select pricing tier if client has default
+    if (client.default_pricing_tier_id) {
+      const tier = pricingTiers?.find((t) => t.id === client.default_pricing_tier_id) || null;
+      setSelectedTier(tier);
+      recalculatePrices(tier);
+    }
+
+    setOpenClientPopover(false);
+  };
+
+  const handleNewClientSubmit = async () => {
+    if (!newClientForm.full_name) {
+      toast.error("Client name is required");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .insert([{
+          full_name: newClientForm.full_name,
+          business_name: newClientForm.business_name || null,
+          email: newClientForm.email || null,
+          phone: newClientForm.phone || null,
+          company_id: companyId,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Client created successfully");
+      setClients([...clients, data]);
+      handleClientSelect(data);
+      setIsNewClientDialogOpen(false);
+      setNewClientForm({ full_name: "", business_name: "", email: "", phone: "" });
+    } catch (error) {
+      console.error("Error creating client:", error);
+      toast.error("Failed to create client");
+    }
   };
 
   const addOrderItem = () => {
@@ -211,6 +303,7 @@ const NewOrder = () => {
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
+          client_id: formData.client_id || null,
           client_name: formData.client_name,
           email: formData.email,
           phone: formData.phone,
@@ -265,7 +358,7 @@ const NewOrder = () => {
               order_id: order.id,
               file_name: file.name,
               file_url: fileName,
-              file_type: 'client_reference',
+              file_type: requiresDesign ? 'client_reference' : 'print_file',
               file_size: file.size,
               uploader_id: user?.id,
               company_id: companyId,
@@ -301,19 +394,119 @@ const NewOrder = () => {
             <CardTitle>Order Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Client Name and Email */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="client_name">Client Name *</Label>
-                <Input
-                  id="client_name"
-                  name="client_name"
-                  value={formData.client_name}
-                  onChange={handleChange}
-                  placeholder="Enter client name"
-                  required
-                />
+            {/* Client Selection with Search */}
+            <div className="space-y-2">
+              <Label>Select Client *</Label>
+              <div className="flex gap-2">
+                <Popover open={openClientPopover} onOpenChange={setOpenClientPopover}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className="flex-1 justify-between"
+                    >
+                      {selectedClient ? selectedClient.full_name : "Search and select a client..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search clients..." />
+                      <CommandList>
+                        <CommandEmpty>No clients found.</CommandEmpty>
+                        <CommandGroup>
+                          {clients.map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={`${client.full_name} ${client.email || ""} ${client.phone || ""}`}
+                              onSelect={() => handleClientSelect(client)}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{client.full_name}</span>
+                                {client.business_name && (
+                                  <span className="text-sm text-muted-foreground">
+                                    {client.business_name}
+                                  </span>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {client.email || client.phone || "No contact info"}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                
+                <Dialog open={isNewClientDialogOpen} onOpenChange={setIsNewClientDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" variant="outline" size="icon">
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Client</DialogTitle>
+                      <DialogDescription>
+                        Quickly add a new client to continue with the order
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="new_client_name">Full Name *</Label>
+                        <Input
+                          id="new_client_name"
+                          value={newClientForm.full_name}
+                          onChange={(e) => setNewClientForm((prev) => ({ ...prev, full_name: e.target.value }))}
+                          placeholder="Enter client name"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new_client_business">Business Name</Label>
+                        <Input
+                          id="new_client_business"
+                          value={newClientForm.business_name}
+                          onChange={(e) => setNewClientForm((prev) => ({ ...prev, business_name: e.target.value }))}
+                          placeholder="Optional"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new_client_email">Email</Label>
+                        <Input
+                          id="new_client_email"
+                          type="email"
+                          value={newClientForm.email}
+                          onChange={(e) => setNewClientForm((prev) => ({ ...prev, email: e.target.value }))}
+                          placeholder="client@example.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="new_client_phone">Phone</Label>
+                        <Input
+                          id="new_client_phone"
+                          type="tel"
+                          value={newClientForm.phone}
+                          onChange={(e) => setNewClientForm((prev) => ({ ...prev, phone: e.target.value }))}
+                          placeholder="+971 XX XXX XXXX"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsNewClientDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="button" onClick={handleNewClientSubmit}>
+                        Add Client
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
+            </div>
+
+            {/* Email and Phone (auto-filled from client) */}
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
                 <Input
@@ -326,10 +519,6 @@ const NewOrder = () => {
                   required
                 />
               </div>
-            </div>
-
-            {/* Phone and Delivery Date */}
-            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
                 <Input
@@ -341,6 +530,10 @@ const NewOrder = () => {
                   placeholder="+971 XX XXX XXXX"
                 />
               </div>
+            </div>
+
+            {/* Delivery Date */}
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Delivery Date *</Label>
                 <Popover>

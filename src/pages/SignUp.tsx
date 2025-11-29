@@ -13,6 +13,8 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [logo, setLogo] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const {
     signUp,
@@ -43,7 +45,7 @@ export default function SignUp() {
     setIsLoading(true);
     const {
       error
-    } = await signUp(email, password, fullName, companyName);
+    } = await signUp(email, password, fullName, companyName, logo);
     setIsLoading(false);
     if (error) {
       if (error.message.includes('already registered')) {
@@ -76,6 +78,31 @@ export default function SignUp() {
             <div className="space-y-2">
               <Label htmlFor="companyName">Company Name</Label>
               <Input id="companyName" type="text" placeholder="Printava Shop" value={companyName} onChange={e => setCompanyName(e.target.value)} disabled={isLoading} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="logo">Company Logo (Optional)</Label>
+              <Input 
+                id="logo" 
+                type="file" 
+                accept="image/*"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setLogo(file);
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setLogoPreview(reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }} 
+                disabled={isLoading}
+              />
+              {logoPreview && (
+                <div className="mt-2 flex justify-center">
+                  <img src={logoPreview} alt="Logo preview" className="h-16 w-auto rounded-md border border-border" />
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

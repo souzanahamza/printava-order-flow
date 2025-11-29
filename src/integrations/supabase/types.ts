@@ -14,24 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      companies: {
+      clients: {
         Row: {
+          address: string | null
+          business_name: string | null
+          city: string | null
+          company_id: string
           created_at: string | null
+          default_pricing_tier_id: string | null
+          email: string | null
+          full_name: string
           id: string
-          name: string | null
-          owner_id: string | null
+          notes: string | null
+          phone: string | null
+          secondary_phone: string | null
+          tax_number: string | null
+          updated_at: string | null
         }
         Insert: {
+          address?: string | null
+          business_name?: string | null
+          city?: string | null
+          company_id: string
           created_at?: string | null
-          id: string
-          name?: string | null
-          owner_id?: string | null
+          default_pricing_tier_id?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          secondary_phone?: string | null
+          tax_number?: string | null
+          updated_at?: string | null
         }
         Update: {
+          address?: string | null
+          business_name?: string | null
+          city?: string | null
+          company_id?: string
           created_at?: string | null
+          default_pricing_tier_id?: string | null
+          email?: string | null
+          full_name?: string
           id?: string
+          notes?: string | null
+          phone?: string | null
+          secondary_phone?: string | null
+          tax_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_default_pricing_tier_id_fkey"
+            columns: ["default_pricing_tier_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companies: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          invoice_notes: string | null
+          invoice_terms: string | null
+          logo_url: string | null
+          name: string | null
+          owner_id: string | null
+          phone: string | null
+          tax_number: string | null
+          tax_rate: number | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          email?: string | null
+          id: string
+          invoice_notes?: string | null
+          invoice_terms?: string | null
+          logo_url?: string | null
           name?: string | null
           owner_id?: string | null
+          phone?: string | null
+          tax_number?: string | null
+          tax_rate?: number | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          invoice_notes?: string | null
+          invoice_terms?: string | null
+          logo_url?: string | null
+          name?: string | null
+          owner_id?: string | null
+          phone?: string | null
+          tax_number?: string | null
+          tax_rate?: number | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -211,6 +304,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          client_id: string | null
           client_name: string
           company_id: string | null
           created_at: string | null
@@ -218,13 +312,17 @@ export type Database = {
           delivery_method: string | null
           email: string
           id: string
+          needs_design: boolean
           notes: string | null
+          payment_method: string | null
+          payment_status: string | null
           phone: string | null
           pricing_tier_id: string | null
           status: string | null
           total_price: number | null
         }
         Insert: {
+          client_id?: string | null
           client_name: string
           company_id?: string | null
           created_at?: string | null
@@ -232,13 +330,17 @@ export type Database = {
           delivery_method?: string | null
           email: string
           id?: string
+          needs_design?: boolean
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           phone?: string | null
           pricing_tier_id?: string | null
           status?: string | null
           total_price?: number | null
         }
         Update: {
+          client_id?: string | null
           client_name?: string
           company_id?: string | null
           created_at?: string | null
@@ -246,13 +348,23 @@ export type Database = {
           delivery_method?: string | null
           email?: string
           id?: string
+          needs_design?: boolean
           notes?: string | null
+          payment_method?: string | null
+          payment_status?: string | null
           phone?: string | null
           pricing_tier_id?: string | null
           status?: string | null
           total_price?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_pricing_tier_id_fkey"
             columns: ["pricing_tier_id"]

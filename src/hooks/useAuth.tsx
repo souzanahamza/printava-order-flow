@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string, companyName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string, companyName: string, logo?: File | null) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -47,10 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string, companyName: string) => {
+  const signUp = async (email: string, password: string, fullName: string, companyName: string, logo?: File | null) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    // First, sign up the user
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -61,6 +62,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     });
+
+    // If signup was successful and logo was provided, upload it
+    if (!error && data.user && logo) {
+      try {
+        const fileExt = logo.name.split('.').pop();
+        const fileName = `${data.user.id}/logo.${fileExt}`;
+        
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('company-logos')
+          .upload(fileName, logo, { upsert: true });
+
+        if (!uploadError && uploadData) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('company-logos')
+            .getPublicUrl(fileName);
+
+          // Update the company with logo URL
+          await supabase
+            .from('companies')
+            .update({ logo_url: publicUrl })
+            .eq('id', data.user.id);
+        }
+      } catch (logoError) {
+        console.error('Error uploading logo:', logoError);
+        // Don't fail the signup if logo upload fails
+      }
+    }
+    
     return { error };
   };
 

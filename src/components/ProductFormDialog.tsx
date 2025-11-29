@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+// FIX: Use useUserRole instead of useAuth to get the correct company_id
+import { useUserRole } from "@/hooks/useUserRole"; 
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -29,8 +30,10 @@ export const ProductFormDialog = ({
   onOpenChange,
 }: ProductFormDialogProps) => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  // FIX: Get companyId from the hook
+  const { companyId } = useUserRole(); 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const [formData, setFormData] = useState({
     sku: "",
     product_code: "",
@@ -82,6 +85,12 @@ export const ProductFormDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!companyId) {
+      toast.error("Company ID not found. Please try logging in again.");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -110,9 +119,10 @@ export const ProductFormDialog = ({
         toast.success("Product updated successfully");
       } else {
         // Create new product
+        // FIX: Use companyId instead of user.id
         const { error } = await supabase.from("products").insert({
           ...productData,
-          company_id: user?.id,
+          company_id: companyId, 
         });
 
         if (error) throw error;
@@ -229,6 +239,7 @@ export const ProductFormDialog = ({
                 type="url"
                 value={formData.image_url}
                 onChange={handleChange}
+                placeholder="https://..."
               />
             </div>
           </div>

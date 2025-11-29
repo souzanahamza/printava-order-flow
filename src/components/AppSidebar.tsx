@@ -1,18 +1,23 @@
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Plus, 
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Plus,
   Package,
-  CheckSquare, 
-  Factory, 
-  Truck, 
+  CheckSquare,
+  Factory,
+  Truck,
   Users,
   Settings,
-  DollarSign
+  DollarSign,
+  UserCircle,
+  Cog
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import printavaLogo from "@/assets/printava-logo.png";
 
 import {
   Sidebar,
@@ -28,16 +33,18 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Orders", url: "/orders", icon: ShoppingCart },
-  { title: "New Order", url: "/new-order", icon: Plus },
-  { title: "Products", url: "/products", icon: Package },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ['admin', 'sales', 'designer', 'production', 'accountant'] },
+  { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'production', 'accountant'] },
+  { title: "New Order", url: "/new-order", icon: Plus, roles: ['admin', 'sales'] },
+  { title: "Clients", url: "/clients", icon: UserCircle, roles: ['admin', 'sales', 'accountant'] },
+  { title: "Products", url: "/products", icon: Package, roles: ['admin', 'sales'] },
   // { title: "Design Approvals", url: "/design-approvals", icon: CheckSquare },
   // { title: "Production", url: "/production", icon: Factory },
   // { title: "Shipping", url: "/shipping", icon: Truck },
 ];
 
 const adminItems = [
+  { title: "Settings", url: "/settings", icon: Cog },
   { title: "Team", url: "/team", icon: Users },
   { title: "Statuses", url: "/settings/statuses", icon: CheckSquare },
   { title: "Pricing", url: "/settings/pricing", icon: DollarSign },
@@ -47,30 +54,60 @@ export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
-  const { fullName, role, companyName, loading } = useUserRole();
+  const { fullName, role, companyName, companyId, loading } = useUserRole();
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (companyId) {
+      supabase
+        .from('companies')
+        .select('logo_url')
+        .eq('id', companyId)
+        .single()
+        .then(({ data }) => {
+          if (data?.logo_url) {
+            setCompanyLogo(data.logo_url);
+          }
+        });
+    }
+  }, [companyId]);
 
   const isActive = (path: string) => currentPath === path;
+
+  // Filter items based on user role
+  const visibleItems = items.filter(item =>
+    !role || item.roles.includes(role)
+  );
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent>
-        {open && companyName && (
+        {companyName && (
           <div className="px-4 py-4 border-b border-sidebar-border">
-            <h2 className="text-lg font-semibold text-foreground truncate">
-              {companyName}
-            </h2>
+            <div className="flex items-center gap-3">
+              <img
+                src={companyLogo || printavaLogo}
+                alt="Company Logo"
+                className="h-10 w-auto max-w-[120px] object-contain"
+              />
+              {/* {open && (
+                <h2 className="text-lg font-semibold text-foreground truncate">
+                  {companyName}
+                </h2>
+              )} */}
+            </div>
           </div>
         )}
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink 
-                      to={item.url} 
-                      end={item.url === "/"} 
+                    <NavLink
+                      to={item.url}
+                      end={item.url === "/"}
                       className="flex items-center gap-3"
                     >
                       <item.icon className="h-4 w-4" />
@@ -91,8 +128,8 @@ export function AppSidebar() {
                 {adminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                      <NavLink 
-                        to={item.url} 
+                      <NavLink
+                        to={item.url}
                         className="flex items-center gap-3"
                       >
                         <item.icon className="h-4 w-4" />
@@ -106,7 +143,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
       </SidebarContent>
-      
+
       {!loading && (fullName || role) && (
         <SidebarFooter className="border-t border-sidebar-border">
           <div className="px-4 py-3">
