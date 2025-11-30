@@ -1,13 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package } from "lucide-react";
 import { OrderDetail } from "../types";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 interface OrderItemsTableProps {
     items: OrderDetail["order_items"];
     totalPrice: number;
+    currency?: string;
 }
 
-export function OrderItemsTable({ items, totalPrice }: OrderItemsTableProps) {
+export function OrderItemsTable({ items, totalPrice, currency = 'AED' }: OrderItemsTableProps) {
     return (
         <Card>
             <CardHeader>
@@ -54,8 +56,8 @@ export function OrderItemsTable({ items, totalPrice }: OrderItemsTableProps) {
                                         {item.product.sku}
                                     </td>
                                     <td className="p-4 text-center font-medium">{item.quantity}</td>
-                                    <td className="p-4 text-right">${item.unit_price.toFixed(2)}</td>
-                                    <td className="p-4 text-right font-semibold">${item.item_total.toFixed(2)}</td>
+                                    <td className="p-4 text-right">{formatCurrency(item.unit_price, currency)}</td>
+                                    <td className="p-4 text-right font-semibold">{formatCurrency(item.item_total, currency)}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -65,7 +67,7 @@ export function OrderItemsTable({ items, totalPrice }: OrderItemsTableProps) {
                                     Total:
                                 </td>
                                 <td className="p-4 text-right text-lg font-bold text-primary">
-                                    ${totalPrice?.toFixed(2)}
+                                    {formatCurrency(totalPrice, currency)}
                                 </td>
                             </tr>
                         </tfoot>

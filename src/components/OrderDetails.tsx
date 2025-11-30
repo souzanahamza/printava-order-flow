@@ -18,6 +18,9 @@ import { DesignerWorkspace } from "./orders/details/DesignerWorkspace";
 import { SalesReview } from "./orders/details/SalesReview";
 import { AccountingAction } from "./orders/details/AccountingAction";
 import { InvoiceTemplate, CompanyProfile } from "./orders/details/InvoiceTemplate";
+import { DeliveryAction } from "./orders/details/actions/DeliveryAction";
+import { ArchivedHistory } from "./orders/details/ArchivedHistory";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 interface OrderDetailsProps {
   orderId: string;
@@ -37,6 +40,7 @@ export function OrderDetails({
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
+    pageStyle: "@page { size: legal portrait; margin: 0mm; }"
   });
 
   const {
@@ -117,6 +121,37 @@ export function OrderDetails({
     enabled: open && !!orderId
   });
 
+  const {
+    data: comments
+  } = useQuery({
+    queryKey: ["order-comments", orderId],
+    queryFn: async () => {
+      const {
+        data,
+        error
+      } = await supabase.from("order_comments").select("*").eq("order_id", orderId).order("created_at", {
+        ascending: false
+      });
+      if (error) throw error;
+
+      // Fetch user profiles
+      const userIds = [...new Set(data?.map(c => c.user_id).filter(Boolean))];
+      if (userIds.length > 0) {
+        const {
+          data: profiles
+        } = await supabase.from("profiles").select("id, full_name, role").in("id", userIds);
+        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        return data.map(comment => ({
+          ...comment,
+          user_name: comment.user_id ? profileMap.get(comment.user_id)?.full_name || "Unknown User" : undefined,
+          user_role: comment.user_id ? profileMap.get(comment.user_id)?.role : undefined
+        }));
+      }
+      return data;
+    },
+    enabled: open && !!orderId
+  });
+
   // Separate attachments by type
   const clientFiles = attachments?.filter(file => file.file_type === "client_reference") || [];
   const designFiles = attachments?.filter(file => file.file_type === "design_mockup") || [];
@@ -130,6 +165,9 @@ export function OrderDetails({
 
   // Check if Accounting Action Card should be visible
   const showAccountingWorkflow = (role === "accountant" || role === "admin") && order?.status === "Pending Payment";
+
+  // Check if Delivery Action should be visible
+  const showDeliveryWorkflow = (role === "admin" || role === "accountant" || role === "sales") && order?.status === "Ready for Pickup";
 
   const handleSuccess = () => {
     onOpenChange(false);
@@ -161,29 +199,39 @@ export function OrderDetails({
                     </span>
                     <span className="flex items-center gap-1.5">
                       <DollarSign className="h-4 w-4" />
-                      ${order.total_price?.toFixed(2)}
+                      {formatCurrency(order.total_price || 0, companyProfile?.currency || 'AED')}
                     </span>
+                    <span className="flex items-center gap-1.5 font-medium text-foreground">
+                      Paid: {formatCurrency(order.paid_amount || 0, companyProfile?.currency || 'AED')}
+                    </span>
+                    {(order.paid_amount || 0) < (order.total_price || 0) && (
+                      <span className="flex items-center gap-1.5 font-semibold text-destructive">
+                        Due: {formatCurrency((order.total_price || 0) - (order.paid_amount || 0), companyProfile?.currency || 'AED')}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePrint()}
-                    disabled={!isInvoiceReady}
-                  >
-                    {isInvoiceReady ? (
-                      <>
-                        <Printer className="h-4 w-4 mr-2" />
-                        Print Invoice
-                      </>
-                    ) : (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Preparing...
-                      </>
-                    )}
-                  </Button>
+                  {(role === "accountant" || role === "admin" || role === "sales") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePrint()}
+                      disabled={!isInvoiceReady}
+                    >
+                      {isInvoiceReady ? (
+                        <>
+                          <Printer className="h-4 w-4 mr-2" />
+                          Print Invoice
+                        </>
+                      ) : (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Preparing...
+                        </>
+                      )}
+                    </Button>
+                  )}
                   <StatusBadge status={order.status} color={statuses?.find(s => s.name === order.status)?.color} />
                 </div>
               </div>
@@ -202,9 +250,29 @@ export function OrderDetails({
             {/* Client Info Card */}
             <ClientInfoCard order={order} />
 
+            {/* Delivery Action Card */}
+            {showDeliveryWorkflow && (
+              <DeliveryAction
+                order={{
+                  id: order.id,
+                  total_price: order.total_price || 0,
+                  paid_amount: order.paid_amount,
+                  payment_status: order.payment_status,
+                  delivery_method: order.delivery_method,
+                }}
+                onSuccess={handleSuccess}
+                currency={companyProfile?.currency || 'AED'}
+              />
+            )}
+
             {/* Accounting Action Card */}
             {showAccountingWorkflow && (
-              <AccountingAction orderId={orderId} onSuccess={handleSuccess} />
+              <AccountingAction
+                orderId={orderId}
+                totalPrice={order.total_price || 0}
+                onSuccess={handleSuccess}
+                currency={companyProfile?.currency || 'AED'}
+              />
             )}
 
 
@@ -243,7 +311,14 @@ export function OrderDetails({
             )}
 
             {/* Order Items Table */}
-            <OrderItemsTable items={order.order_items} totalPrice={order.total_price} />
+            <OrderItemsTable 
+              items={order.order_items} 
+              totalPrice={order.total_price} 
+              currency={companyProfile?.currency || 'AED'}
+            />
+
+            {/* Archived Revisions History */}
+            <ArchivedHistory attachments={attachments || []} comments={comments} />
 
           </div>
         ) : null}

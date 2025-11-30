@@ -12,6 +12,8 @@ interface UpdateOrderStatusParams {
 interface ConfirmPaymentParams {
   orderId: string;
   paymentMethod: string;
+  paymentStatus: string;
+  paidAmount: number;
   onSuccess?: () => void;
 }
 
@@ -50,12 +52,11 @@ export function useConfirmPayment() {
   const { data: statuses } = useOrderStatuses();
 
   return useMutation({
-    mutationFn: async ({ orderId, paymentMethod }: ConfirmPaymentParams) => {
+    mutationFn: async ({ orderId, paymentMethod, paymentStatus, paidAmount }: ConfirmPaymentParams) => {
       if (!paymentMethod) {
         throw new Error("Please select a payment method");
       }
 
-      const paymentStatus = paymentMethod === "cod" ? "pending" : "paid";
       const inProductionStatus = statuses?.find(s => s.name === "In Production");
       
       if (!inProductionStatus) {
@@ -67,6 +68,7 @@ export function useConfirmPayment() {
         .update({
           payment_method: paymentMethod,
           payment_status: paymentStatus,
+          paid_amount: paidAmount,
           status: inProductionStatus.name,
         })
         .eq("id", orderId);

@@ -1,6 +1,7 @@
 import React from "react";
 import { format } from "date-fns";
 import { OrderDetail } from "@/components/orders/types";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 // تحديث الواجهة لتشمل كل الحقول الديناميكية الجديدة
 export interface CompanyProfile {
@@ -14,6 +15,7 @@ export interface CompanyProfile {
     invoice_notes?: string | null; // Default invoice notes
     invoice_terms?: string | null; // Terms and conditions
     tax_rate?: number | null;      // Tax/VAT rate percentage
+    currency?: string | null;      // Currency code (AED, USD, etc.)
 }
 
 // توسيع واجهة الطلب لتوقع بيانات العميل الإضافية (في حال تم جلبها عبر Join)
@@ -45,11 +47,12 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
             }
         }, [companyProfile, onTemplateReady]);
 
-        // --- 1. Financial calculations with dynamic tax rate ---
+        // --- 1. Financial calculations with dynamic tax rate and currency ---
         const subtotal = order.order_items.reduce((acc, item) => acc + item.item_total, 0);
         const taxPercentage = companyProfile?.tax_rate ?? 0; // Default to 0 if null
         const taxAmount = subtotal * (taxPercentage / 100);
         const grandTotal = subtotal + taxAmount;
+        const currency = companyProfile?.currency || 'AED';
 
         // --- 2. Prepare dynamic data ---
         // Use client data from clients table if available, otherwise fallback to order data
@@ -64,7 +67,7 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
                 <div className="flex justify-between items-start mb-12 pb-8 border-b border-slate-200">
                     {/* Left: Company Info */}
                     <div className="flex flex-col w-3/5">
-                        <div className="mb-6 h-20 flex items-start">
+                        <div className="mb-6 min-h-fit flex items-start">
                             {companyProfile?.logo_url ? (
                                 <img
                                     src={companyProfile.logo_url}
@@ -162,9 +165,9 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
                                 </div>
 
                                 <div className="text-right text-slate-900">{item.quantity}</div>
-                                <div className="text-right text-slate-900">{item.unit_price.toFixed(2)}</div>
+                                <div className="text-right text-slate-900">{formatCurrency(item.unit_price, currency)}</div>
                                 <div className="text-right text-slate-500">{taxPercentage}%</div>
-                                <div className="text-right font-semibold text-slate-900">{item.item_total.toFixed(2)}</div>
+                                <div className="text-right font-semibold text-slate-900">{formatCurrency(item.item_total, currency)}</div>
                             </div>
                         ))}
                     </div>
@@ -176,19 +179,19 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
                         {/* Subtotal */}
                         <div className="flex justify-between py-3 border-b border-slate-100 text-xs">
                             <span className="text-slate-500 font-medium">Subtotal (Excl. VAT)</span>
-                            <span className="text-slate-900 font-semibold">{subtotal.toFixed(2)}</span>
+                            <span className="text-slate-900 font-semibold">{formatCurrency(subtotal, currency)}</span>
                         </div>
 
                         {/* VAT */}
                         <div className="flex justify-between py-3 border-b border-slate-100 text-xs">
                             <span className="text-slate-500 font-medium">VAT ({taxPercentage}%)</span>
-                            <span className="text-slate-900 font-semibold">{taxAmount.toFixed(2)}</span>
+                            <span className="text-slate-900 font-semibold">{formatCurrency(taxAmount, currency)}</span>
                         </div>
 
                         {/* Grand Total */}
                         <div className="flex justify-between py-4 mt-2 bg-slate-50 px-4 rounded text-sm">
                             <span className="text-slate-900 font-bold uppercase tracking-wide">Total</span>
-                            <span className="text-slate-900 font-bold text-lg">{grandTotal.toFixed(2)}</span>
+                            <span className="text-slate-900 font-bold text-lg">{formatCurrency(grandTotal, currency)}</span>
                         </div>
                     </div>
                 </div>

@@ -23,6 +23,7 @@ const companySchema = z.object({
   invoice_notes: z.string().max(1000).optional().or(z.literal('')),
   invoice_terms: z.string().max(1000).optional().or(z.literal('')),
   tax_rate: z.coerce.number().min(0, 'Tax rate must be at least 0').max(100, 'Tax rate cannot exceed 100'),
+  currency: z.string().min(1, 'Currency is required').max(10),
 });
 
 type CompanyFormData = z.infer<typeof companySchema>;
@@ -71,6 +72,7 @@ export default function Settings() {
           invoice_notes: data.invoice_notes || '',
           invoice_terms: data.invoice_terms || '',
           tax_rate: data.tax_rate || 5,
+          currency: data.currency || 'AED',
         });
 
         if (data.logo_url) {
@@ -155,6 +157,7 @@ export default function Settings() {
         invoice_notes: data.invoice_notes || null,
         invoice_terms: data.invoice_terms || null,
         tax_rate: data.tax_rate,
+        currency: data.currency,
       };
 
       const { error } = await supabase
@@ -196,214 +199,230 @@ export default function Settings() {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Company Settings</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your company profile, branding, and invoice details
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Company Settings</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage your company profile, branding, and invoice details
+        </p>
+      </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Branding Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Company Branding</CardTitle>
-              <CardDescription>
-                Upload your company logo to appear on invoices and throughout the app
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-6">
-                <div className="flex-shrink-0">
-                  {logoPreview ? (
-                    <img
-                      src={logoPreview}
-                      alt="Company Logo"
-                      className="h-24 w-24 object-contain rounded-lg border border-border"
-                    />
-                  ) : (
-                    <div className="h-24 w-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground">
-                      No Logo
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <Label htmlFor="logo" className="cursor-pointer">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Button type="button" variant="outline" size="sm" asChild>
-                        <span>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload Logo
-                        </span>
-                      </Button>
-                      <span className="text-muted-foreground">
-                        PNG, JPG up to 5MB
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Branding Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Company Branding</CardTitle>
+            <CardDescription>
+              Upload your company logo to appear on invoices and throughout the app
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-6">
+              <div className="flex-shrink-0">
+                {logoPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt="Company Logo"
+                    className="h-24 w-24 object-contain rounded-lg border border-border"
+                  />
+                ) : (
+                  <div className="h-24 w-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-muted-foreground">
+                    No Logo
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <Label htmlFor="logo" className="cursor-pointer">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Button type="button" variant="outline" size="sm" asChild>
+                      <span>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Logo
                       </span>
-                    </div>
-                  </Label>
-                  <Input
-                    id="logo"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLogoChange}
-                    className="hidden"
-                  />
-                </div>
+                    </Button>
+                    <span className="text-muted-foreground">
+                      PNG, JPG up to 5MB
+                    </span>
+                  </div>
+                </Label>
+                <Input
+                  id="logo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoChange}
+                  className="hidden"
+                />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Company Details Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Company Details</CardTitle>
-              <CardDescription>
-                This information will appear on invoices and official documents
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">
-                    Company Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    {...register('name')}
-                    placeholder="Enter company name"
-                  />
-                  {errors.name && (
-                    <p className="text-sm text-destructive">{errors.name.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="tax_number">Tax/TRN Number</Label>
-                  <Input
-                    id="tax_number"
-                    {...register('tax_number')}
-                    placeholder="Enter tax registration number"
-                  />
-                  {errors.tax_number && (
-                    <p className="text-sm text-destructive">{errors.tax_number.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="tax_rate">Tax/VAT Rate (%)</Label>
-                  <Input
-                    id="tax_rate"
-                    type="number"
-                    step="0.01"
-                    {...register('tax_rate')}
-                    placeholder="e.g. 5 or 15"
-                  />
-                  {errors.tax_rate && (
-                    <p className="text-sm text-destructive">{errors.tax_rate.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    {...register('phone')}
-                    placeholder="+971 50 123 4567"
-                  />
-                  {errors.phone && (
-                    <p className="text-sm text-destructive">{errors.phone.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    {...register('email')}
-                    placeholder="company@example.com"
-                  />
-                  {errors.email && (
-                    <p className="text-sm text-destructive">{errors.email.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="website">Website</Label>
-                  <Input
-                    id="website"
-                    {...register('website')}
-                    placeholder="https://www.example.com"
-                  />
-                  {errors.website && (
-                    <p className="text-sm text-destructive">{errors.website.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Textarea
-                    id="address"
-                    {...register('address')}
-                    placeholder="Enter full company address"
-                    rows={3}
-                  />
-                  {errors.address && (
-                    <p className="text-sm text-destructive">{errors.address.message}</p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Invoice Customization Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Invoice Customization</CardTitle>
-              <CardDescription>
-                Customize default notes and terms that appear on all invoices
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        {/* Company Details Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Company Details</CardTitle>
+            <CardDescription>
+              This information will appear on invoices and official documents
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="invoice_notes">Default Invoice Notes</Label>
+                <Label htmlFor="name">
+                  Company Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  {...register('name')}
+                  placeholder="Enter company name"
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tax_number">Tax/TRN Number</Label>
+                <Input
+                  id="tax_number"
+                  {...register('tax_number')}
+                  placeholder="Enter tax registration number"
+                />
+                {errors.tax_number && (
+                  <p className="text-sm text-destructive">{errors.tax_number.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tax_rate">Tax/VAT Rate (%)</Label>
+                <Input
+                  id="tax_rate"
+                  type="number"
+                  step="0.01"
+                  {...register('tax_rate')}
+                  placeholder="e.g. 5 or 15"
+                />
+                {errors.tax_rate && (
+                  <p className="text-sm text-destructive">{errors.tax_rate.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="currency">Currency</Label>
+                <select
+                  id="currency"
+                  {...register('currency')}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="AED">AED - UAE Dirham</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="SAR">SAR - Saudi Riyal</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="GBP">GBP - British Pound</option>
+                </select>
+                {errors.currency && (
+                  <p className="text-sm text-destructive">{errors.currency.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  {...register('phone')}
+                  placeholder="+971 50 123 4567"
+                />
+                {errors.phone && (
+                  <p className="text-sm text-destructive">{errors.phone.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...register('email')}
+                  placeholder="company@example.com"
+                />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="website">Website</Label>
+                <Input
+                  id="website"
+                  {...register('website')}
+                  placeholder="https://www.example.com"
+                />
+                {errors.website && (
+                  <p className="text-sm text-destructive">{errors.website.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="address">Address</Label>
                 <Textarea
-                  id="invoice_notes"
-                  {...register('invoice_notes')}
-                  placeholder="Thank you for your business."
+                  id="address"
+                  {...register('address')}
+                  placeholder="Enter full company address"
                   rows={3}
                 />
-                {errors.invoice_notes && (
-                  <p className="text-sm text-destructive">{errors.invoice_notes.message}</p>
+                {errors.address && (
+                  <p className="text-sm text-destructive">{errors.address.message}</p>
                 )}
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="invoice_terms">Terms and Conditions</Label>
-                <Textarea
-                  id="invoice_terms"
-                  {...register('invoice_terms')}
-                  placeholder="1. Goods once sold cannot be returned.&#10;2. Payment to be made by Cheque/Cash.&#10;3. All disputes are subject to UAE jurisdiction."
-                  rows={5}
-                />
-                {errors.invoice_terms && (
-                  <p className="text-sm text-destructive">{errors.invoice_terms.message}</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting || uploading}>
-              {(isSubmitting || uploading) && (
-                <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              </div>
+        {/* Invoice Customization Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoice Customization</CardTitle>
+            <CardDescription>
+              Customize default notes and terms that appear on all invoices
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="invoice_notes">Default Invoice Notes</Label>
+              <Textarea
+                id="invoice_notes"
+                {...register('invoice_notes')}
+                placeholder="Thank you for your business."
+                rows={3}
+              />
+              {errors.invoice_notes && (
+                <p className="text-sm text-destructive">{errors.invoice_notes.message}</p>
               )}
-              Save Changes
-            </Button>
-          </div>
-        </form>
-      </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="invoice_terms">Terms and Conditions</Label>
+              <Textarea
+                id="invoice_terms"
+                {...register('invoice_terms')}
+                placeholder="1. Goods once sold cannot be returned.&#10;2. Payment to be made by Cheque/Cash.&#10;3. All disputes are subject to UAE jurisdiction."
+                rows={5}
+              />
+              {errors.invoice_terms && (
+                <p className="text-sm text-destructive">{errors.invoice_terms.message}</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isSubmitting || uploading}>
+            {(isSubmitting || uploading) && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Save Changes
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }

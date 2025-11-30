@@ -1,4 +1,5 @@
 import { StatusBadge } from "@/components/StatusBadge";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 interface OrderCardProps {
   id: string;
@@ -14,6 +15,7 @@ interface OrderCardProps {
   } | null;
   onClick?: () => void;
   showFullId?: boolean;
+  currency?: string;
 }
 
 export function OrderCard({
@@ -26,7 +28,8 @@ export function OrderCard({
   total_price,
   pricing_tier,
   onClick,
-  showFullId = false
+  showFullId = false,
+  currency = 'AED'
 }: OrderCardProps) {
   return (
     <div 
@@ -59,7 +62,7 @@ export function OrderCard({
             )}
             <div>
               <span className="text-muted-foreground">Total:</span>{" "}
-              <span className="font-semibold text-primary">${total_price?.toFixed(2)}</span>
+              <span className="font-semibold text-primary">{formatCurrency(total_price, currency)}</span>
             </div>
           </div>
         </div>

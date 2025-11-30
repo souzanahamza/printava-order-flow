@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrderStatuses } from "@/hooks/useOrderStatuses";
 import { useUserRole } from "@/hooks/useUserRole";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 type OrderWithDetails = {
   id: string;
@@ -47,14 +48,15 @@ type OrderWithDetails = {
 interface OrdersListProps {
   clientId?: string;
   hideFilters?: boolean;
+  paymentStatusFilter?: string[];
 }
 
-export const OrdersList = ({ clientId, hideFilters = false }: OrdersListProps) => {
+export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter }: OrdersListProps) => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { role } = useUserRole();
+  const { role, companyId } = useUserRole();
 
   // Designer-specific statuses
   const DESIGNER_STATUSES = ['In Design', 'Design Revision', 'Waiting for Print File'];
@@ -63,12 +65,30 @@ export const OrdersList = ({ clientId, hideFilters = false }: OrdersListProps) =
   // Fetch order statuses using custom hook
   const { data: statuses } = useOrderStatuses();
 
+  // Fetch company profile for currency
+  const { data: companyProfile } = useQuery({
+    queryKey: ["company-profile", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("companies")
+        .select("currency")
+        .eq("id", companyId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const currency = companyProfile?.currency || 'AED';
+
   // Fetch orders with all details
   const {
     data: orders,
     isLoading
   } = useQuery({
-    queryKey: ["orders", isDesigner, clientId],
+    queryKey: ["orders", isDesigner, clientId, paymentStatusFilter],
     queryFn: async () => {
       let query = supabase.from("orders").select(`
           *,
@@ -92,6 +112,11 @@ export const OrdersList = ({ clientId, hideFilters = false }: OrdersListProps) =
       // Filter by client if clientId is provided
       if (clientId) {
         query = query.eq('client_id', clientId);
+      }
+      
+      // Filter by payment status if provided
+      if (paymentStatusFilter && paymentStatusFilter.length > 0) {
+        query = query.in('payment_status', paymentStatusFilter);
       }
       
       // Filter by designer statuses if user is designer
@@ -215,7 +240,7 @@ export const OrdersList = ({ clientId, hideFilters = false }: OrdersListProps) =
                       )}
                       <div>
                         <span className="text-muted-foreground">Total:</span>{" "}
-                        <span className="font-semibold text-primary">${order.total_price?.toFixed(2)}</span>
+                        <span className="font-semibold text-primary">{formatCurrency(order.total_price, currency)}</span>
                       </div>
                     </div>
                   </div>

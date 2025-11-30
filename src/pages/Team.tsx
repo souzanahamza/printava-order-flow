@@ -44,6 +44,7 @@ interface TeamMember {
   id: string;
   full_name: string | null;
   role: string | null;
+  email: string | null;
 }
 
 const ROLES = ['admin', 'sales', 'designer', 'accountant', 'production', 'packaging'];
@@ -56,6 +57,10 @@ export default function Team() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [editedMember, setEditedMember] = useState({
+    fullName: '',
+    role: 'sales' as string,
+  });
   const [newMember, setNewMember] = useState({
     email: '',
     fullName: '',
@@ -73,7 +78,7 @@ export default function Team() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role')
+        .select('id, full_name, role, email')
         .eq('company_id', companyId)
         .order('full_name');
 
@@ -106,6 +111,12 @@ export default function Team() {
 
       if (error) throw error;
 
+      // Check if the response contains an error
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
       toast.success('Team member created successfully');
       setIsAddDialogOpen(false);
       setNewMember({ email: '', fullName: '', role: 'sales', password: '' });
@@ -116,22 +127,32 @@ export default function Team() {
     }
   };
 
-  const handleUpdateRole = async (memberId: string, newRole: string) => {
+  const handleUpdateMember = async () => {
+    if (!selectedMember) return;
+    
     try {
+      if (!editedMember.fullName.trim()) {
+        toast.error('Full name cannot be empty');
+        return;
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({ role: newRole })
-        .eq('id', memberId);
+        .update({ 
+          full_name: editedMember.fullName,
+          role: editedMember.role 
+        })
+        .eq('id', selectedMember.id);
 
       if (error) throw error;
       
-      toast.success('Role updated successfully');
+      toast.success('Member updated successfully');
       fetchTeamMembers();
       setIsEditDialogOpen(false);
       setSelectedMember(null);
     } catch (error) {
-      console.error('Error updating role:', error);
-      toast.error('Failed to update role');
+      console.error('Error updating member:', error);
+      toast.error('Failed to update member');
     }
   };
 
@@ -269,6 +290,7 @@ export default function Team() {
           <TableHeader>
             <TableRow>
               <TableHead>Full Name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -277,7 +299,7 @@ export default function Team() {
           <TableBody>
             {teamMembers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   No team members found
                 </TableCell>
               </TableRow>
@@ -289,6 +311,9 @@ export default function Team() {
                     {member.id === user?.id && (
                       <span className="ml-2 text-xs text-muted-foreground">(You)</span>
                     )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {member.email || 'N/A'}
                   </TableCell>
                   <TableCell>
                     <span className="capitalize">{member.role || 'N/A'}</span>
@@ -309,10 +334,14 @@ export default function Team() {
                         <DropdownMenuItem
                           onClick={() => {
                             setSelectedMember(member);
+                            setEditedMember({
+                              fullName: member.full_name || '',
+                              role: member.role || 'sales',
+                            });
                             setIsEditDialogOpen(true);
                           }}
                         >
-                          Edit Role
+                          Edit Member
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive"
@@ -334,19 +363,26 @@ export default function Team() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Role</DialogTitle>
+            <DialogTitle>Edit Team Member</DialogTitle>
             <DialogDescription>
-              Update the role for {selectedMember?.full_name || 'this member'}
+              Update details for {selectedMember?.full_name || 'this member'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
+              <Label htmlFor="edit-fullName">Full Name</Label>
+              <Input
+                id="edit-fullName"
+                placeholder="John Doe"
+                value={editedMember.fullName}
+                onChange={(e) => setEditedMember({ ...editedMember, fullName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
               <Select
-                value={selectedMember?.role || 'sales'}
-                onValueChange={(value) => 
-                  selectedMember && handleUpdateRole(selectedMember.id, value)
-                }
+                value={editedMember.role}
+                onValueChange={(value) => setEditedMember({ ...editedMember, role: value })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -361,6 +397,12 @@ export default function Team() {
               </Select>
             </div>
           </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateMember}>Save Changes</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

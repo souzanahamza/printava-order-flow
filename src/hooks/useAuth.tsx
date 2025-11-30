@@ -94,7 +94,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'global' });
+      if (error) {
+        console.error('Error during sign out:', error.message || error);
+      }
+    } catch (error) {
+      console.error('Unexpected sign out error:', error);
+    } finally {
+      // Always clear local auth state so routing behaves correctly
+      setSession(null);
+      setUser(null);
+      // Optional: clear stored token to avoid stale sessions on reload
+      localStorage.removeItem('sb-pqbzcxizlkazhalivqox-auth-token');
+    }
   };
 
   return (

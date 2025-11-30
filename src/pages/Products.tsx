@@ -7,14 +7,36 @@ import { Plus, Package, Upload } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductFormDialog } from "@/components/ProductFormDialog";
 import { BulkImportDialog } from "@/components/BulkImportDialog";
+import { useUserRole } from "@/hooks/useUserRole";
 import type { Tables } from "@/integrations/supabase/types";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 type Product = Tables<"products">;
 
 const Products = () => {
+  const { role, companyId } = useUserRole();
+  const canEditProducts = role === 'admin' || role === 'sales' || role === 'accountant';
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+
+  // Fetch company profile for currency
+  const { data: companyProfile } = useQuery({
+    queryKey: ["company-profile", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("companies")
+        .select("currency")
+        .eq("id", companyId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const currency = companyProfile?.currency || 'AED';
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products"],
@@ -53,10 +75,12 @@ const Products = () => {
             Manage your product catalog
           </p>
         </div>
-        <Button onClick={() => setIsBulkImportOpen(true)} variant="outline">
-          <Upload className="h-4 w-4 mr-2" />
-          Bulk Import
-        </Button>
+        {canEditProducts && (
+          <Button onClick={() => setIsBulkImportOpen(true)} variant="outline">
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Import
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -91,8 +115,8 @@ const Products = () => {
           {products.map((product) => (
             <Card
               key={product.id}
-              className="hover:shadow-lg transition-shadow cursor-pointer"
-              onClick={() => handleEditProduct(product)}
+              className={canEditProducts ? "hover:shadow-lg transition-shadow cursor-pointer" : ""}
+              onClick={canEditProducts ? () => handleEditProduct(product) : undefined}
             >
               <CardContent className="p-6">
                 {product.image_url ? (
@@ -127,12 +151,14 @@ const Products = () => {
                     <span className="font-medium text-foreground">{product.category}</span>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Price:</span>
-                    <span className="font-semibold text-primary">
-                      ${Number(product.unit_price).toFixed(2)}
-                    </span>
-                  </div>
+                  {canEditProducts && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Price:</span>
+                      <span className="font-semibold text-primary">
+                        {formatCurrency(Number(product.unit_price), currency)}
+                      </span>
+                    </div>
+                  )}
 
                   {product.description && (
                     <p className="text-sm text-muted-foreground mt-3">
@@ -146,25 +172,31 @@ const Products = () => {
         </div>
       )}
 
-      {/* Floating Action Button */}
-      <Button
-        onClick={handleAddProduct}
-        className="fixed bottom-8 right-8 h-14 w-14 rounded-full shadow-lg"
-        size="icon"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
+      {/* Floating Action Button - Only for authorized users */}
+      {canEditProducts && (
+        <Button
+          onClick={handleAddProduct}
+          className="fixed bottom-8 right-8 h-14 w-14 rounded-full shadow-lg"
+          size="icon"
+        >
+          <Plus className="h-6 w-6" />
+        </Button>
+      )}
 
-      <ProductFormDialog
-        product={selectedProduct}
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-      />
+      {canEditProducts && (
+        <>
+          <ProductFormDialog
+            product={selectedProduct}
+            open={isDialogOpen}
+            onOpenChange={setIsDialogOpen}
+          />
 
-      <BulkImportDialog
-        open={isBulkImportOpen}
-        onOpenChange={setIsBulkImportOpen}
-      />
+          <BulkImportDialog
+            open={isBulkImportOpen}
+            onOpenChange={setIsBulkImportOpen}
+          />
+        </>
+      )}
     </div>
   );
 };

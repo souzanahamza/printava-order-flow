@@ -9,7 +9,9 @@ import { OrderCard } from "@/components/OrderCard";
 import { useOrderStatuses } from "@/hooks/useOrderStatuses";
 import { useUserRole } from "@/hooks/useUserRole";
 import { DesignerTaskCard } from "@/components/DesignerTaskCard";
+import { AccountantDashboard } from "@/components/dashboard/AccountantDashboard";
 import { format, addDays, isWithinInterval } from "date-fns";
+import { formatCurrency } from "@/utils/formatCurrency";
 type OrderWithDetails = {
   id: string;
   client_name: string;
@@ -43,9 +45,27 @@ type DesignerOrder = {
 const Dashboard = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const { role, loading: roleLoading } = useUserRole();
+  const { role, loading: roleLoading, companyId } = useUserRole();
 
   const { data: statuses } = useOrderStatuses();
+
+  // Fetch company profile for currency
+  const { data: companyProfile } = useQuery({
+    queryKey: ["company-profile", companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      const { data, error } = await supabase
+        .from("companies")
+        .select("currency")
+        .eq("id", companyId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const currency = companyProfile?.currency || 'AED';
 
   const {
     data: allOrders,
@@ -178,11 +198,11 @@ const Dashboard = () => {
       change: "Currently printing"
     }, {
       title: "Revenue",
-      value: `$${totalRevenue.toFixed(2)}`,
+      value: formatCurrency(totalRevenue, currency),
       icon: TrendingUp,
       change: `From ${totalOrders} orders`
     }];
-  }, [allOrders]);
+  }, [allOrders, currency]);
 
   if (roleLoading) {
     return (
@@ -273,7 +293,12 @@ const Dashboard = () => {
     </div>;
   }
 
-  // Default Dashboard (Admin, Sales, Accountant)
+  // Accountant Dashboard
+  if (role === 'accountant') {
+    return <AccountantDashboard />;
+  }
+
+  // Default Dashboard (Admin)
   return <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -312,7 +337,18 @@ const Dashboard = () => {
           {isLoadingRecent ? <div className="space-y-4">
               {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full" />)}
             </div> : recentOrders && recentOrders.length > 0 ? <div className="space-y-4">
-              {recentOrders.map(order => <OrderCard key={order.id} id={order.id} client_name={order.client_name} email={order.email} delivery_date={order.delivery_date} status={order.status} statusColor={statuses?.find(s => s.name === order.status)?.color} total_price={order.total_price} pricing_tier={order.pricing_tier} onClick={() => {
+              {recentOrders.map(order => <OrderCard 
+                key={order.id} 
+                id={order.id} 
+                client_name={order.client_name} 
+                email={order.email} 
+                delivery_date={order.delivery_date} 
+                status={order.status} 
+                statusColor={statuses?.find(s => s.name === order.status)?.color} 
+                total_price={order.total_price} 
+                pricing_tier={order.pricing_tier}
+                currency={currency}
+                onClick={() => {
                   setSelectedOrderId(order.id);
                   setIsDetailsOpen(true);
                 }} />)}

@@ -84,6 +84,7 @@ export type Database = {
         Row: {
           address: string | null
           created_at: string | null
+          currency: string | null
           email: string | null
           id: string
           invoice_notes: string | null
@@ -99,6 +100,7 @@ export type Database = {
         Insert: {
           address?: string | null
           created_at?: string | null
+          currency?: string | null
           email?: string | null
           id: string
           invoice_notes?: string | null
@@ -114,6 +116,7 @@ export type Database = {
         Update: {
           address?: string | null
           created_at?: string | null
+          currency?: string | null
           email?: string | null
           id?: string
           invoice_notes?: string | null
@@ -314,6 +317,7 @@ export type Database = {
           id: string
           needs_design: boolean
           notes: string | null
+          paid_amount: number | null
           payment_method: string | null
           payment_status: string | null
           phone: string | null
@@ -332,6 +336,7 @@ export type Database = {
           id?: string
           needs_design?: boolean
           notes?: string | null
+          paid_amount?: number | null
           payment_method?: string | null
           payment_status?: string | null
           phone?: string | null
@@ -350,6 +355,7 @@ export type Database = {
           id?: string
           needs_design?: boolean
           notes?: string | null
+          paid_amount?: number | null
           payment_method?: string | null
           payment_status?: string | null
           phone?: string | null
@@ -450,6 +456,7 @@ export type Database = {
         Row: {
           company_id: string | null
           created_at: string | null
+          email: string | null
           full_name: string | null
           id: string
           role: string | null
@@ -457,6 +464,7 @@ export type Database = {
         Insert: {
           company_id?: string | null
           created_at?: string | null
+          email?: string | null
           full_name?: string | null
           id: string
           role?: string | null
@@ -464,6 +472,7 @@ export type Database = {
         Update: {
           company_id?: string | null
           created_at?: string | null
+          email?: string | null
           full_name?: string | null
           id?: string
           role?: string | null

@@ -7,24 +7,23 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
-import printavaLogo from "@/assets/printava-logo.png";
 
 export function Navbar() {
   const { user, signOut } = useAuth();
   const { companyId } = useUserRole();
   const navigate = useNavigate();
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
   useEffect(() => {
     if (companyId) {
       supabase
         .from('companies')
-        .select('logo_url')
+        .select('name')
         .eq('id', companyId)
         .single()
         .then(({ data }) => {
-          if (data?.logo_url) {
-            setCompanyLogo(data.logo_url);
+          if (data?.name) {
+            setCompanyName(data.name);
           }
         });
     }
@@ -39,12 +38,9 @@ export function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border bg-card">
       <div className="flex h-16 items-center px-4 gap-4">
         <div className="flex items-center gap-2">
-          <img
-            src={companyLogo || printavaLogo}
-            alt="Company Logo"
-            className="max-h-12 w-auto rounded-md"
-            style={{ maxWidth: '200px' }}
-          />
+          <span className="text-xl font-bold text-foreground">
+            {companyName}
+          </span>
         </div>
 
         <div className="ml-auto flex items-center gap-2">

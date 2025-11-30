@@ -18,6 +18,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import printavaLogo from "@/assets/printava-logo.png";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   Sidebar,
@@ -33,14 +34,12 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ['admin', 'sales', 'designer', 'production', 'accountant'] },
-  { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'production', 'accountant'] },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ['admin', 'sales', 'designer', 'accountant'] },
+  { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'accountant'] },
   { title: "New Order", url: "/new-order", icon: Plus, roles: ['admin', 'sales'] },
   { title: "Clients", url: "/clients", icon: UserCircle, roles: ['admin', 'sales', 'accountant'] },
-  { title: "Products", url: "/products", icon: Package, roles: ['admin', 'sales'] },
-  // { title: "Design Approvals", url: "/design-approvals", icon: CheckSquare },
-  // { title: "Production", url: "/production", icon: Factory },
-  // { title: "Shipping", url: "/shipping", icon: Truck },
+  { title: "Products", url: "/products", icon: Package, roles: ['admin', 'sales', 'accountant', 'production'] },
+  { title: "Production", url: "/production", icon: Factory, roles: ['admin', 'production'] },
 ];
 
 const adminItems = [
@@ -86,7 +85,7 @@ export function AppSidebar() {
           <div className="px-4 py-4 border-b border-sidebar-border">
             <div className="flex items-center gap-3">
               <img
-                src={companyLogo || printavaLogo}
+                src={companyLogo}
                 alt="Company Logo"
                 className="h-10 w-auto max-w-[120px] object-contain"
               />
@@ -102,25 +101,39 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <NavLink
-                      to={item.url}
-                      end={item.url === "/"}
-                      className="flex items-center gap-3"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {loading ? (
+                // Show loading skeletons while role is being fetched
+                <>
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <SidebarMenuItem key={i}>
+                      <div className="px-2 py-2">
+                        <Skeleton className="h-9 w-full" />
+                      </div>
+                    </SidebarMenuItem>
+                  ))}
+                </>
+              ) : (
+                // Show actual menu items once role is loaded
+                visibleItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <NavLink
+                        to={item.url}
+                        end={item.url === "/"}
+                        className="flex items-center gap-3"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {role === 'admin' && (
+        {!loading && role === 'admin' && (
           <SidebarGroup>
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>

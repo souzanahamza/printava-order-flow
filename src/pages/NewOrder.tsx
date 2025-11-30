@@ -36,6 +36,8 @@ import { usePricingTiers } from "@/hooks/usePricingTiers";
 import { CalendarIcon, Plus, Trash2, Upload, UserPlus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/utils/formatCurrency";
+import { useQuery } from "@tanstack/react-query";
 import {
   Command,
   CommandEmpty,
@@ -76,6 +78,23 @@ const NewOrder = () => {
   const { user } = useAuth();
   const { companyId } = useUserRole();
   const { data: pricingTiers } = usePricingTiers();
+  
+  // Fetch company profile for currency
+  const { data: companyProfile } = useQuery({
+    queryKey: ['company-profile', companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('currency')
+        .eq('id', companyId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+  
+  const currency = companyProfile?.currency || 'AED';
   const [deliveryDate, setDeliveryDate] = useState<Date>();
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -756,7 +775,7 @@ const NewOrder = () => {
                       <Label>Unit Price</Label>
                       <Input
                         type="text"
-                        value={`AED ${item.unit_price.toFixed(2)}`}
+                        value={formatCurrency(item.unit_price, currency)}
                         readOnly
                         className="bg-muted"
                       />
@@ -768,7 +787,7 @@ const NewOrder = () => {
                       <div className="flex gap-2">
                         <Input
                           type="text"
-                          value={`AED ${item.item_total.toFixed(2)}`}
+                          value={formatCurrency(item.item_total, currency)}
                           readOnly
                           className="bg-muted"
                         />
@@ -793,7 +812,7 @@ const NewOrder = () => {
                 <div className="text-right space-y-1">
                   <p className="text-sm text-muted-foreground">Total Order Price</p>
                   <p className="text-2xl font-bold text-foreground">
-                    AED {calculateTotal().toFixed(2)}
+                    {formatCurrency(calculateTotal(), currency)}
                   </p>
                 </div>
               </div>

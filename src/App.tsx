@@ -6,6 +6,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { RoleBasedRoute } from "@/components/RoleBasedRoute";
+import { Navigate } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import NewOrder from "./pages/NewOrder";
@@ -25,6 +28,27 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Component to handle role-based redirects from home
+function HomeRedirect() {
+  const { role, loading } = useUserRole();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Production users go directly to production page
+  if (role === 'production') {
+    return <Navigate to="/production" replace />;
+  }
+
+  // Everyone else sees dashboard
+  return <Dashboard />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -35,19 +59,125 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
-            <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
-            <Route path="/orders" element={<ProtectedRoute><Layout><Orders /></Layout></ProtectedRoute>} />
-            <Route path="/new-order" element={<ProtectedRoute><Layout><NewOrder /></Layout></ProtectedRoute>} />
-            <Route path="/clients" element={<ProtectedRoute><Layout><Clients /></Layout></ProtectedRoute>} />
-            <Route path="/products" element={<ProtectedRoute><Layout><Products /></Layout></ProtectedRoute>} />
+            
+            {/* Home - redirects based on role */}
+            <Route 
+              path="/" 
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <HomeRedirect />
+                  </Layout>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Protected routes with role restrictions */}
+            <Route 
+              path="/orders" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'designer', 'accountant']}>
+                    <Layout><Orders /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/new-order" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales']}>
+                    <Layout><NewOrder /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/clients" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'accountant']}>
+                    <Layout><Clients /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/products" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'accountant', 'production']}>
+                    <Layout><Products /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/production" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin', 'production']}>
+                    <Layout><Production /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Admin-only routes */}
+            <Route 
+              path="/team" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <Layout><Team /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/settings" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <Layout><Settings /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/settings/statuses" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <Layout><StatusSettings /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/settings/pricing" 
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <Layout><PricingSettings /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Legacy routes - kept for backward compatibility */}
             <Route path="/design-approvals" element={<ProtectedRoute><Layout><DesignApprovals /></Layout></ProtectedRoute>} />
-            <Route path="/production" element={<ProtectedRoute><Layout><Production /></Layout></ProtectedRoute>} />
             <Route path="/shipping" element={<ProtectedRoute><Layout><Shipping /></Layout></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><Layout><UsersManagement /></Layout></ProtectedRoute>} />
-            <Route path="/team" element={<ProtectedRoute><Layout><Team /></Layout></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
-            <Route path="/settings/statuses" element={<ProtectedRoute><Layout><StatusSettings /></Layout></ProtectedRoute>} />
-            <Route path="/settings/pricing" element={<ProtectedRoute><Layout><PricingSettings /></Layout></ProtectedRoute>} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

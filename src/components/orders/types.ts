@@ -9,6 +9,8 @@ export type OrderDetail = {
     total_price: number;
     notes: string | null;
     created_at: string;
+    paid_amount: number | null;
+    payment_status: string | null;
     pricing_tier?: {
         name: string;
         label: string;
