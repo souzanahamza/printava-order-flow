@@ -2,14 +2,28 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package } from "lucide-react";
 import { OrderDetail } from "../types";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface OrderItemsTableProps {
     items: OrderDetail["order_items"];
     totalPrice: number;
     currency?: string;
+    exchangeRate?: number | null;
 }
 
-export function OrderItemsTable({ items, totalPrice, currency = 'AED' }: OrderItemsTableProps) {
+export function OrderItemsTable({ items, totalPrice, currency, exchangeRate }: OrderItemsTableProps) {
+    const { role, loading: roleLoading } = useUserRole();
+
+    // Role-based financial visibility - wait for role to load first
+    const canViewFinancials = !roleLoading && ['admin', 'sales', 'accountant'].includes(role || '');
+
+    const convert = (amount: number) => {
+        if (exchangeRate && exchangeRate > 0) {
+            return amount / exchangeRate;
+        }
+        return amount;
+    };
+
     return (
         <Card>
             <CardHeader>
@@ -26,8 +40,8 @@ export function OrderItemsTable({ items, totalPrice, currency = 'AED' }: OrderIt
                                 <th className="text-left p-4 font-medium">Product</th>
                                 <th className="text-center p-4 font-medium">SKU</th>
                                 <th className="text-center p-4 font-medium">Quantity</th>
-                                <th className="text-right p-4 font-medium">Unit Price</th>
-                                <th className="text-right p-4 font-medium">Total</th>
+                                {canViewFinancials && <th className="text-right p-4 font-medium">Unit Price</th>}
+                                {canViewFinancials && <th className="text-right p-4 font-medium">Total</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -56,21 +70,23 @@ export function OrderItemsTable({ items, totalPrice, currency = 'AED' }: OrderIt
                                         {item.product.sku}
                                     </td>
                                     <td className="p-4 text-center font-medium">{item.quantity}</td>
-                                    <td className="p-4 text-right">{formatCurrency(item.unit_price, currency)}</td>
-                                    <td className="p-4 text-right font-semibold">{formatCurrency(item.item_total, currency)}</td>
+                                    {canViewFinancials && <td className="p-4 text-right">{formatCurrency(convert(item.unit_price), currency)}</td>}
+                                    {canViewFinancials && <td className="p-4 text-right font-semibold">{formatCurrency(convert(item.item_total), currency)}</td>}
                                 </tr>
                             ))}
                         </tbody>
-                        <tfoot className="bg-muted/30 border-t-2">
-                            <tr>
-                                <td colSpan={4} className="p-4 text-right font-semibold">
-                                    Total:
-                                </td>
-                                <td className="p-4 text-right text-lg font-bold text-primary">
-                                    {formatCurrency(totalPrice, currency)}
-                                </td>
-                            </tr>
-                        </tfoot>
+                        {canViewFinancials && (
+                            <tfoot className="bg-muted/30 border-t-2">
+                                <tr>
+                                    <td colSpan={4} className="p-4 text-right font-semibold">
+                                        Total:
+                                    </td>
+                                    <td className="p-4 text-right text-lg font-bold text-primary">
+                                        {formatCurrency(convert(totalPrice), currency)}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        )}
                     </table>
                 </div>
             </CardContent>

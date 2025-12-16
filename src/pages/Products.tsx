@@ -27,7 +27,7 @@ const Products = () => {
       if (!companyId) return null;
       const { data, error } = await supabase
         .from("companies")
-        .select("currency")
+        .select("currency_id, base_currency:currencies(code)")
         .eq("id", companyId)
         .single();
       if (error) throw error;
@@ -36,7 +36,7 @@ const Products = () => {
     enabled: !!companyId,
   });
 
-  const currency = companyProfile?.currency || 'AED';
+  const currency = companyProfile?.base_currency?.code;
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products"],
@@ -45,7 +45,7 @@ const Products = () => {
         .from("products")
         .select("*")
         .order("name_en");
-      
+
       if (error) throw error;
       return data as Product[];
     },
@@ -130,7 +130,7 @@ const Products = () => {
                     <Package className="h-12 w-12 text-muted-foreground" />
                   </div>
                 )}
-                
+
                 <div className="space-y-2">
                   <div>
                     <h3 className="font-semibold text-lg text-foreground">

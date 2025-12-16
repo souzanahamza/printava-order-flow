@@ -8,6 +8,7 @@ import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useConfirmPayment } from "@/hooks/useOrderMutations";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AccountingActionProps {
     orderId: string;
@@ -16,7 +17,7 @@ interface AccountingActionProps {
     currency?: string;
 }
 
-export function AccountingAction({ orderId, totalPrice, onSuccess, currency = 'AED' }: AccountingActionProps) {
+export function AccountingAction({ orderId, totalPrice, onSuccess, currency }: AccountingActionProps) {
     const [paymentMethod, setPaymentMethod] = useState<string>("");
     const [depositAmount, setDepositAmount] = useState<string>("");
     const confirmPaymentMutation = useConfirmPayment();
@@ -59,12 +60,31 @@ export function AccountingAction({ orderId, totalPrice, onSuccess, currency = 'A
             paidAmount = 0;
         }
 
+        // Build action details string
+        const methodLabel = paymentMethod === "cash" ? "Cash" : paymentMethod === "advanced" ? "Deposit" : "COD";
+        const actionDetails = paymentMethod === "cod"
+            ? "Payment: COD (Pay on Delivery)"
+            : `Payment: ${formatCurrency(paidAmount, currency)} (${methodLabel})`;
+
         confirmPaymentMutation.mutate({
             orderId,
             paymentMethod,
             paymentStatus,
             paidAmount,
             onSuccess: () => {
+                // Wait 500ms to ensure DB Trigger has finished creating the row
+                setTimeout(async () => {
+                    const { error } = await supabase
+                        .from("order_status_history")
+                        .update({ action_details: actionDetails })
+                        .eq("order_id", orderId)
+                        .eq("new_status", "Ready for Production")
+                        .order("created_at", { ascending: false })
+                        .limit(1);
+                    
+                    if (error) console.error("Failed to update history details:", error);
+                }, 500);
+
                 setPaymentMethod("");
                 setDepositAmount("");
                 onSuccess();
@@ -143,7 +163,7 @@ export function AccountingAction({ orderId, totalPrice, onSuccess, currency = 'A
                     <CheckCircle2 className="h-5 w-5 mr-2" />
                     {confirmPaymentMutation.isPending
                         ? "Processing..."
-                        : "Confirm Payment & Send to Production"}
+                        : "Confirm Payment & Queue for Production"}
                 </Button>
             </CardContent>
         </Card>

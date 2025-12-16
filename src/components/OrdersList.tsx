@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrderStatuses } from "@/hooks/useOrderStatuses";
 import { useUserRole } from "@/hooks/useUserRole";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { PriceDisplay } from "@/components/ui/price-display";
 
 type OrderWithDetails = {
   id: string;
@@ -25,6 +25,12 @@ type OrderWithDetails = {
   notes: string | null;
   delivery_method: string | null;
   pricing_tier_id: string | null;
+  total_price_foreign?: number | null;
+  total_price_company?: number | null;
+  currencies?: {
+    code: string;
+    symbol: string | null;
+  } | null;
   pricing_tier?: {
     name: string;
     label: string;
@@ -56,7 +62,10 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { role, companyId } = useUserRole();
+  const { role, companyId, loading: roleLoading } = useUserRole();
+
+  // Role-based financial visibility - wait for role to load first
+  const canViewFinancials = !roleLoading && ['admin', 'sales', 'accountant'].includes(role || '');
 
   // Designer-specific statuses
   const DESIGNER_STATUSES = ['In Design', 'Design Revision', 'Waiting for Print File'];
@@ -72,7 +81,7 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
       if (!companyId) return null;
       const { data, error } = await supabase
         .from("companies")
-        .select("currency")
+        .select("currency_id, base_currency:currencies(code)")
         .eq("id", companyId)
         .single();
       if (error) throw error;
@@ -81,7 +90,7 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
     enabled: !!companyId,
   });
 
-  const currency = companyProfile?.currency || 'AED';
+  const currency = companyProfile?.base_currency?.code;
 
   // Fetch orders with all details
   const {
@@ -92,6 +101,8 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
     queryFn: async () => {
       let query = supabase.from("orders").select(`
           *,
+          total_price_foreign,
+          currencies:currency_id ( code, symbol ),
           pricing_tier:pricing_tiers(name, label),
           order_items(
             id,
@@ -108,22 +119,22 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
             )
           )
         `);
-      
+
       // Filter by client if clientId is provided
       if (clientId) {
         query = query.eq('client_id', clientId);
       }
-      
+
       // Filter by payment status if provided
       if (paymentStatusFilter && paymentStatusFilter.length > 0) {
         query = query.in('payment_status', paymentStatusFilter);
       }
-      
+
       // Filter by designer statuses if user is designer
       if (isDesigner) {
         query = query.in('status', DESIGNER_STATUSES);
       }
-      
+
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       return data as OrderWithDetails[];
@@ -157,7 +168,7 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
   });
 
   // Filter statuses for dropdown based on role
-  const availableStatuses = isDesigner 
+  const availableStatuses = isDesigner
     ? statuses?.filter(s => DESIGNER_STATUSES.includes(s.name))
     : statuses;
 
@@ -193,8 +204,8 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
               <SelectContent>
                 <SelectItem value="all">{isDesigner ? 'All Active' : 'All Statuses'}</SelectItem>
                 {availableStatuses?.map(status => <SelectItem key={status.id} value={status.name.toLowerCase()}>
-                    {status.name}
-                  </SelectItem>)}
+                  {status.name}
+                </SelectItem>)}
               </SelectContent>
             </Select>
           </CardContent>
@@ -204,10 +215,10 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => <Card key={i}>
-              <CardContent className="p-6">
-                <Skeleton className="h-24 w-full" />
-              </CardContent>
-            </Card>)}
+            <CardContent className="p-6">
+              <Skeleton className="h-24 w-full" />
+            </CardContent>
+          </Card>)}
         </div>
       ) : filteredOrders && filteredOrders.length > 0 ? (
         <div className="space-y-4">
@@ -238,21 +249,34 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                           <span className="font-medium">{order.pricing_tier.label || order.pricing_tier.name}</span>
                         </div>
                       )}
-                      <div>
-                        <span className="text-muted-foreground">Total:</span>{" "}
-                        <span className="font-semibold text-primary">{formatCurrency(order.total_price, currency)}</span>
-                      </div>
+                      {roleLoading ? (
+                        <div>
+                          <span className="text-muted-foreground">Total:</span>{" "}
+                          <Skeleton className="inline-block h-5 w-24" />
+                        </div>
+                      ) : canViewFinancials ? (
+                        <div>
+                          <span className="text-muted-foreground">Total:</span>{" "}
+                          <PriceDisplay
+                            amount={order.total_price_foreign || order.total_price}
+                            baseCurrency={currency}
+                            foreignCurrency={order.currencies?.code}
+                            baseAmount={order.total_price_company || order.total_price}
+                            variant="compact"
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-3 lg:items-end">
-                    <StatusBadge 
-                      status={order.status} 
+                    <StatusBadge
+                      status={order.status}
                       color={statuses?.find(s => s.name === order.status)?.color}
                     />
                     <div className="flex gap-2">
-                      <Select 
-                        value={order.status} 
+                      <Select
+                        value={order.status}
                         onValueChange={newStatus => handleStatusUpdate(order.id, newStatus)}
                         disabled={isDesigner}
                       >
@@ -267,8 +291,8 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                           ))}
                         </SelectContent>
                       </Select>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => setSelectedOrderId(order.id)}
                       >

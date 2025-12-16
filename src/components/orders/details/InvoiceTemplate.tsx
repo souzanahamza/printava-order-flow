@@ -15,7 +15,10 @@ export interface CompanyProfile {
     invoice_notes?: string | null; // Default invoice notes
     invoice_terms?: string | null; // Terms and conditions
     tax_rate?: number | null;      // Tax/VAT rate percentage
-    currency?: string | null;      // Currency code (AED, USD, etc.)
+    currency?: string | null;      // Legacy currency code (AED, USD, etc.) - deprecated
+    base_currency?: {              // New relation to currencies table
+        code: string;
+    };
 }
 
 // توسيع واجهة الطلب لتوقع بيانات العميل الإضافية (في حال تم جلبها عبر Join)
@@ -25,6 +28,12 @@ interface ExtendedOrderDetail extends OrderDetail {
         address?: string | null;
         phone?: string | null;
     };
+    currencies?: {
+        code: string;
+        symbol: string | null;
+    } | null;
+    total_price_foreign?: number | null;
+    exchange_rate?: number | null;
 }
 
 interface InvoiceTemplateProps {
@@ -47,12 +56,31 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
             }
         }, [companyProfile, onTemplateReady]);
 
-        // --- 1. Financial calculations with dynamic tax rate and currency ---
-        const subtotal = order.order_items.reduce((acc, item) => acc + item.item_total, 0);
-        const taxPercentage = companyProfile?.tax_rate ?? 0; // Default to 0 if null
+        // --- 1. Determine Invoice Currency (Order's transaction currency or Company base) ---
+        const hasOrderCurrency = order.currencies?.code && order.exchange_rate && order.exchange_rate !== 1;
+        const invoiceCurrency = order.currencies?.code || companyProfile?.base_currency?.code || companyProfile?.currency;
+        const exchangeRate = order.exchange_rate || 1;
+
+        // --- 2. Helper to convert base currency prices to invoice currency ---
+        // Items are stored in base currency, so we divide by exchange_rate to get foreign currency
+        const toInvoiceCurrency = (baseAmount: number) => {
+            if (hasOrderCurrency) {
+                return baseAmount / exchangeRate;
+            }
+            return baseAmount;
+        };
+
+        // --- 3. Financial calculations with dynamic tax rate ---
+        const taxPercentage = companyProfile?.tax_rate ?? 0;
+        
+        // Calculate subtotal in invoice currency
+        const subtotal = order.order_items.reduce((acc, item) => acc + toInvoiceCurrency(item.item_total), 0);
         const taxAmount = subtotal * (taxPercentage / 100);
-        const grandTotal = subtotal + taxAmount;
-        const currency = companyProfile?.currency || 'AED';
+        
+        // Use order's total_price_foreign if available, otherwise calculate
+        const grandTotal = hasOrderCurrency && order.total_price_foreign 
+            ? order.total_price_foreign 
+            : subtotal + taxAmount;
 
         // --- 2. Prepare dynamic data ---
         // Use client data from clients table if available, otherwise fallback to order data
@@ -165,9 +193,9 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
                                 </div>
 
                                 <div className="text-right text-slate-900">{item.quantity}</div>
-                                <div className="text-right text-slate-900">{formatCurrency(item.unit_price, currency)}</div>
+                                <div className="text-right text-slate-900">{formatCurrency(toInvoiceCurrency(item.unit_price), invoiceCurrency)}</div>
                                 <div className="text-right text-slate-500">{taxPercentage}%</div>
-                                <div className="text-right font-semibold text-slate-900">{formatCurrency(item.item_total, currency)}</div>
+                                <div className="text-right font-semibold text-slate-900">{formatCurrency(toInvoiceCurrency(item.item_total), invoiceCurrency)}</div>
                             </div>
                         ))}
                     </div>
@@ -179,19 +207,19 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
                         {/* Subtotal */}
                         <div className="flex justify-between py-3 border-b border-slate-100 text-xs">
                             <span className="text-slate-500 font-medium">Subtotal (Excl. VAT)</span>
-                            <span className="text-slate-900 font-semibold">{formatCurrency(subtotal, currency)}</span>
+                            <span className="text-slate-900 font-semibold">{formatCurrency(subtotal, invoiceCurrency)}</span>
                         </div>
 
                         {/* VAT */}
                         <div className="flex justify-between py-3 border-b border-slate-100 text-xs">
                             <span className="text-slate-500 font-medium">VAT ({taxPercentage}%)</span>
-                            <span className="text-slate-900 font-semibold">{formatCurrency(taxAmount, currency)}</span>
+                            <span className="text-slate-900 font-semibold">{formatCurrency(taxAmount, invoiceCurrency)}</span>
                         </div>
 
                         {/* Grand Total */}
                         <div className="flex justify-between py-4 mt-2 bg-slate-50 px-4 rounded text-sm">
                             <span className="text-slate-900 font-bold uppercase tracking-wide">Total</span>
-                            <span className="text-slate-900 font-bold text-lg">{formatCurrency(grandTotal, currency)}</span>
+                            <span className="text-slate-900 font-bold text-lg">{formatCurrency(grandTotal, invoiceCurrency)}</span>
                         </div>
                     </div>
                 </div>

@@ -11,6 +11,13 @@ export type OrderDetail = {
     created_at: string;
     paid_amount: number | null;
     payment_status: string | null;
+    total_price_foreign?: number | null;
+    total_price_company?: number | null;
+    exchange_rate?: number | null;
+    currencies?: {
+        code: string;
+        symbol: string | null;
+    } | null;
     pricing_tier?: {
         name: string;
         label: string;

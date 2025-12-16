@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Package, Calendar, DollarSign, FileText, Upload, Printer, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Package, Calendar, DollarSign, FileText, Upload, Printer, Loader2, History } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -20,7 +21,9 @@ import { AccountingAction } from "./orders/details/AccountingAction";
 import { InvoiceTemplate, CompanyProfile } from "./orders/details/InvoiceTemplate";
 import { DeliveryAction } from "./orders/details/actions/DeliveryAction";
 import { ArchivedHistory } from "./orders/details/ArchivedHistory";
+import { OrderTimeline } from "./orders/details/OrderTimeline";
 import { formatCurrency } from "@/utils/formatCurrency";
+import { PriceDisplay } from "@/components/ui/price-display";
 
 interface OrderDetailsProps {
   orderId: string;
@@ -33,10 +36,13 @@ export function OrderDetails({
   open,
   onOpenChange
 }: OrderDetailsProps) {
-  const { role, companyId } = useUserRole();
+  const { role, companyId, loading: roleLoading } = useUserRole();
   const { data: statuses } = useOrderStatuses();
   const componentRef = useRef<HTMLDivElement>(null);
   const [isInvoiceReady, setIsInvoiceReady] = useState(false);
+
+  // Role-based financial visibility - wait for role to load first
+  const canViewFinancials = !roleLoading && ['admin', 'sales', 'accountant'].includes(role || '');
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
@@ -54,6 +60,9 @@ export function OrderDetails({
         error
       } = await supabase.from("orders").select(`
           *,
+          total_price_foreign,
+          exchange_rate,
+          currencies:currency_id ( code, symbol ),
           pricing_tier:pricing_tiers(name, label),
           clients(full_name, phone, address, tax_number),
           order_items(
@@ -81,7 +90,7 @@ export function OrderDetails({
       if (!companyId) return null;
       const { data, error } = await supabase
         .from("companies")
-        .select("*")
+        .select("*, base_currency:currencies(code)")
         .eq("id", companyId)
         .single();
       if (error) throw error;
@@ -103,17 +112,17 @@ export function OrderDetails({
       });
       if (error) throw error;
 
-      // Fetch uploader profiles
+      // Fetch uploader profiles and roles
       const uploaderIds = [...new Set(data?.map(a => a.uploader_id).filter(Boolean))];
       if (uploaderIds.length > 0) {
-        const {
-          data: profiles
-        } = await supabase.from("profiles").select("id, full_name, role").in("id", uploaderIds);
-        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", uploaderIds);
+        const { data: userRoles } = await supabase.from("user_roles").select("user_id, role").in("user_id", uploaderIds);
+        const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+        const roleMap = new Map(userRoles?.map(r => [r.user_id, r.role]) || []);
         return data.map(attachment => ({
           ...attachment,
-          uploader_name: attachment.uploader_id ? profileMap.get(attachment.uploader_id)?.full_name || "Unknown User" : undefined,
-          uploader_role: attachment.uploader_id ? profileMap.get(attachment.uploader_id)?.role : undefined
+          uploader_name: attachment.uploader_id ? profileMap.get(attachment.uploader_id) || "Unknown User" : undefined,
+          uploader_role: attachment.uploader_id ? roleMap.get(attachment.uploader_id) : undefined
         })) as OrderAttachment[];
       }
       return data as OrderAttachment[];
@@ -134,17 +143,17 @@ export function OrderDetails({
       });
       if (error) throw error;
 
-      // Fetch user profiles
+      // Fetch user profiles and roles
       const userIds = [...new Set(data?.map(c => c.user_id).filter(Boolean))];
       if (userIds.length > 0) {
-        const {
-          data: profiles
-        } = await supabase.from("profiles").select("id, full_name, role").in("id", userIds);
-        const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+        const { data: userRoles } = await supabase.from("user_roles").select("user_id, role").in("user_id", userIds);
+        const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+        const roleMap = new Map(userRoles?.map(r => [r.user_id, r.role]) || []);
         return data.map(comment => ({
           ...comment,
-          user_name: comment.user_id ? profileMap.get(comment.user_id)?.full_name || "Unknown User" : undefined,
-          user_role: comment.user_id ? profileMap.get(comment.user_id)?.role : undefined
+          user_name: comment.user_id ? profileMap.get(comment.user_id) || "Unknown User" : undefined,
+          user_role: comment.user_id ? roleMap.get(comment.user_id) : undefined
         }));
       }
       return data;
@@ -183,144 +192,213 @@ export function OrderDetails({
             <Skeleton className="h-64 w-full" />
           </div>
         ) : order ? (
-          <div className="space-y-10">
-            {/* Header */}
-            <DialogHeader className="-bottom-10 ">
-              <div className="flex items-start justify-between gap-16 ">
-                <div className="space-y-2">
-                  <DialogTitle className="text-3xl font-bold flex items-center gap-3">
-                    <Package className="h-8 w-8 text-primary" />
-                    Order #{order.id.slice(0, 8).toUpperCase()}
-                  </DialogTitle>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <Calendar className="h-4 w-4" />
-                      {format(new Date(order.created_at), "PPP")}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <DollarSign className="h-4 w-4" />
-                      {formatCurrency(order.total_price || 0, companyProfile?.currency || 'AED')}
-                    </span>
-                    <span className="flex items-center gap-1.5 font-medium text-foreground">
-                      Paid: {formatCurrency(order.paid_amount || 0, companyProfile?.currency || 'AED')}
-                    </span>
-                    {(order.paid_amount || 0) < (order.total_price || 0) && (
-                      <span className="flex items-center gap-1.5 font-semibold text-destructive">
-                        Due: {formatCurrency((order.total_price || 0) - (order.paid_amount || 0), companyProfile?.currency || 'AED')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  {(role === "accountant" || role === "admin" || role === "sales") && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePrint()}
-                      disabled={!isInvoiceReady}
-                    >
-                      {isInvoiceReady ? (
-                        <>
-                          <Printer className="h-4 w-4 mr-2" />
-                          Print Invoice
-                        </>
-                      ) : (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Preparing...
-                        </>
+          (() => {
+            // ===== Multi-Currency Calculation Logic =====
+            // 1. Determine if this is a Multi-Currency Order
+            const isForeignCurrency = !!(order.total_price_foreign && order.currencies?.code && order.exchange_rate);
+
+            // 2. Determine which currency to show in the UI
+            const displayCurrency = isForeignCurrency
+              ? order.currencies?.code
+              : companyProfile?.base_currency?.code || 'AED';
+
+            // 3. Get the Rate (Safe fallback to 1)
+            const exchangeRate = order.exchange_rate || 1;
+
+            // 4. Calculate Display Values
+            // Total: Use the stored foreign price if available, otherwise base total
+            const totalAmountDisplay = isForeignCurrency
+              ? (order.total_price_foreign || 0)
+              : (order.total_price || 0);
+
+            // Paid: paid_amount is stored in the transaction currency (same as total_price_foreign)
+            const paidAmountDisplay = order.paid_amount || 0;
+
+            // Due: Simple subtraction of display values
+            const dueAmountDisplay = totalAmountDisplay - paidAmountDisplay;
+
+            return (
+              <div className="space-y-10">
+                {/* Header */}
+                <DialogHeader className="-bottom-10 ">
+                  <div className="flex items-start justify-between gap-16 ">
+                    <div className="space-y-2">
+                      <DialogTitle className="text-3xl font-bold flex items-center gap-3">
+                        <Package className="h-8 w-8 text-primary" />
+                        Order #{order.id.slice(0, 8).toUpperCase()}
+                      </DialogTitle>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="h-4 w-4" />
+                          {format(new Date(order.created_at), "PPP")}
+                        </span>
+                        {canViewFinancials && (
+                          <>
+                            <span className="flex items-center gap-1.5">
+                              <DollarSign className="h-4 w-4" />
+                              <PriceDisplay
+                                amount={order.total_price_foreign || order.total_price || 0}
+                                baseCurrency={companyProfile?.base_currency?.code}
+                                foreignCurrency={order.currencies?.code}
+                                baseAmount={order.total_price_company || order.total_price || 0}
+                                variant="inline"
+                              />
+                            </span>
+                            <span className="flex items-center gap-1.5 font-medium text-foreground">
+                              Paid: {formatCurrency(paidAmountDisplay, displayCurrency)}
+                            </span>
+                            {dueAmountDisplay > 0.01 && (
+                              <span className="flex items-center gap-1.5 font-semibold text-destructive">
+                                Due: {formatCurrency(dueAmountDisplay, displayCurrency)}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {(role === "accountant" || role === "admin" || role === "sales") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePrint()}
+                          disabled={!isInvoiceReady}
+                        >
+                          {isInvoiceReady ? (
+                            <>
+                              <Printer className="h-4 w-4 mr-2" />
+                              Print Invoice
+                            </>
+                          ) : (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Preparing...
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </Button>
-                  )}
-                  <StatusBadge status={order.status} color={statuses?.find(s => s.name === order.status)?.color} />
+                      <StatusBadge status={order.status} color={statuses?.find(s => s.name === order.status)?.color} />
+                    </div>
+                  </div>
+                </DialogHeader>
+
+                {/* Hidden Invoice Template */}
+                <div className="hidden">
+                  <InvoiceTemplate
+                    ref={componentRef}
+                    order={order}
+                    companyProfile={companyProfile || null}
+                    onTemplateReady={() => setIsInvoiceReady(true)}
+                  />
                 </div>
+
+                {/* Client Info Card */}
+                <ClientInfoCard order={order} />
+
+                {/* Tabs for Details and History (Admin only) */}
+                <Tabs defaultValue="details" className="w-full">
+                  <TabsList className="grid w-full max-w-md grid-cols-2">
+                    <TabsTrigger value="details">Order Details</TabsTrigger>
+                    {role === "admin" && (
+                      <TabsTrigger value="history" className="flex items-center gap-2">
+                        <History className="h-4 w-4" />
+                        History
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+
+                  <TabsContent value="details" className="space-y-6 mt-6">
+                    {/* Delivery Action Card */}
+                    {showDeliveryWorkflow && (
+                      <DeliveryAction
+                        order={{
+                          id: order.id,
+                          total_price: order.total_price || 0,
+                          paid_amount: order.paid_amount,
+                          payment_status: order.payment_status,
+                          delivery_method: order.delivery_method,
+                        }}
+                        onSuccess={handleSuccess}
+                        currency={displayCurrency}
+                      />
+                    )}
+
+                    {/* Accounting Action Card */}
+                    {showAccountingWorkflow && (
+                      <AccountingAction
+                        orderId={orderId}
+                        totalPrice={order.total_price || 0}
+                        onSuccess={handleSuccess}
+                        currency={displayCurrency}
+                      />
+                    )}
+
+                    {/* Design Proofs & Mockups */}
+                    <AttachmentsList
+                      attachments={designFiles}
+                      title="Design Proofs & Mockups"
+                      icon={Upload}
+                    />
+
+                    {/* Client Files & Assets */}
+                    <AttachmentsList
+                      attachments={clientFiles}
+                      title="Client Files & Assets"
+                      icon={FileText}
+                    />
+
+                    {/* Print Files */}
+                    <AttachmentsList
+                      attachments={printFiles}
+                      title="Final Print Files"
+                      icon={FileText}
+                      className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/20"
+                      iconClassName="text-purple-600"
+                      iconBgClassName="bg-purple-100 dark:bg-purple-900/30"
+                    />
+
+                    {/* Designer Workspace */}
+                    {showDesignerWorkspace && (
+                      <DesignerWorkspace orderId={orderId} order={order} onSuccess={handleSuccess} />
+                    )}
+
+                    {/* Sales Review */}
+                    {showSalesReview && (
+                      <SalesReview orderId={orderId} designFiles={designFiles} onSuccess={handleSuccess} />
+                    )}
+
+                    {/* Order Items Table */}
+                    <OrderItemsTable
+                      items={order.order_items}
+                      totalPrice={order.total_price}
+                      currency={displayCurrency}
+                      exchangeRate={isForeignCurrency ? exchangeRate : null}
+                    />
+
+                    {/* Archived Revisions History */}
+                    <ArchivedHistory attachments={attachments || []} comments={comments} />
+                  </TabsContent>
+
+                  {/* Admin-only History Tab */}
+                  {role === "admin" && (
+                    <TabsContent value="history" className="mt-6">
+                      <div className="rounded-lg border bg-card p-6">
+                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                          <History className="h-5 w-5 text-primary" />
+                          Order Lifecycle Timeline
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-6">
+                          Track the duration of each stage to identify bottlenecks and optimize workflow.
+                        </p>
+                        <OrderTimeline orderId={orderId} />
+                      </div>
+                    </TabsContent>
+                  )}
+                </Tabs>
+
               </div>
-            </DialogHeader>
-
-            {/* Hidden Invoice Template */}
-            <div className="hidden">
-              <InvoiceTemplate
-                ref={componentRef}
-                order={order}
-                companyProfile={companyProfile || null}
-                onTemplateReady={() => setIsInvoiceReady(true)}
-              />
-            </div>
-
-            {/* Client Info Card */}
-            <ClientInfoCard order={order} />
-
-            {/* Delivery Action Card */}
-            {showDeliveryWorkflow && (
-              <DeliveryAction
-                order={{
-                  id: order.id,
-                  total_price: order.total_price || 0,
-                  paid_amount: order.paid_amount,
-                  payment_status: order.payment_status,
-                  delivery_method: order.delivery_method,
-                }}
-                onSuccess={handleSuccess}
-                currency={companyProfile?.currency || 'AED'}
-              />
-            )}
-
-            {/* Accounting Action Card */}
-            {showAccountingWorkflow && (
-              <AccountingAction
-                orderId={orderId}
-                totalPrice={order.total_price || 0}
-                onSuccess={handleSuccess}
-                currency={companyProfile?.currency || 'AED'}
-              />
-            )}
-
-
-            {/* Design Proofs & Mockups */}
-            <AttachmentsList
-              attachments={designFiles}
-              title="Design Proofs & Mockups"
-              icon={Upload}
-            />
-
-            {/* Client Files & Assets */}
-            <AttachmentsList
-              attachments={clientFiles}
-              title="Client Files & Assets"
-              icon={FileText}
-            />
-
-            {/* Print Files */}
-            <AttachmentsList
-              attachments={printFiles}
-              title="Final Print Files"
-              icon={FileText}
-              className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/20"
-              iconClassName="text-purple-600"
-              iconBgClassName="bg-purple-100 dark:bg-purple-900/30"
-            />
-
-            {/* Designer Workspace */}
-            {showDesignerWorkspace && (
-              <DesignerWorkspace orderId={orderId} order={order} onSuccess={handleSuccess} />
-            )}
-
-            {/* Sales Review */}
-            {showSalesReview && (
-              <SalesReview orderId={orderId} designFiles={designFiles} onSuccess={handleSuccess} />
-            )}
-
-            {/* Order Items Table */}
-            <OrderItemsTable 
-              items={order.order_items} 
-              totalPrice={order.total_price} 
-              currency={companyProfile?.currency || 'AED'}
-            />
-
-            {/* Archived Revisions History */}
-            <ArchivedHistory attachments={attachments || []} comments={comments} />
-
-          </div>
+            );
+          })()
         ) : null}
       </DialogContent>
     </Dialog>

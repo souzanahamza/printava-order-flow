@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Download, CheckCircle, AlertCircle, Calendar, Package as PackageIcon, User, FileText, Truck } from "lucide-react";
+import { Download, CheckCircle, AlertCircle, Calendar, Package as PackageIcon, User, FileText, Truck, Clock, Cog } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ type ProductionOrder = {
   delivery_method: string | null;
   notes: string | null;
   created_at: string;
+  status: string;
   order_items: Array<{
     quantity: number;
     product: {
@@ -53,6 +54,7 @@ const Production = () => {
           delivery_method,
           notes,
           created_at,
+          status,
           order_items (
             quantity,
             product:products (
@@ -62,7 +64,7 @@ const Production = () => {
             )
           )
         `)
-        .eq('status', 'In Production')
+        .in('status', ['Ready for Production', 'In Production'])
         .order('delivery_date', { ascending: true });
 
       if (error) throw error;
@@ -91,6 +93,25 @@ const Production = () => {
       );
 
       return ordersWithFiles as ProductionOrder[];
+    }
+  });
+
+  const startJobMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'In Production' })
+        .eq('id', orderId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['production-orders'] });
+      toast.success('Job started! Printing in progress.');
+    },
+    onError: (error) => {
+      toast.error('Failed to start job');
+      console.error(error);
     }
   });
 
@@ -127,6 +148,23 @@ const Production = () => {
     return <Badge variant="outline">{format(date, 'MMM d, yyyy')}</Badge>;
   };
 
+  const getStatusBadge = (status: string) => {
+    if (status === 'Ready for Production') {
+      return (
+        <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-300">
+          <Clock className="h-3 w-3" />
+          Waiting for Machine
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="default" className="gap-1 bg-blue-500 hover:bg-blue-600 animate-pulse">
+        <Cog className="h-3 w-3 animate-spin" />
+        Printing in Progress
+      </Badge>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -153,11 +191,12 @@ const Production = () => {
       ) : (
         <div className="space-y-4">
           {orders.map((order) => (
-            <Card key={order.id} className="hover:shadow-lg transition-shadow">
+            <Card key={order.id} className={`hover:shadow-lg transition-shadow ${order.status === 'In Production' ? 'border-blue-500/50 ring-1 ring-blue-500/20' : ''}`}>
               <CardHeader className="pb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <CardTitle className="text-xl font-bold">{order.id}</CardTitle>
+                    {getStatusBadge(order.status)}
                     {getUrgencyBadge(order.delivery_date)}
                   </div>
                   <Badge variant="outline" className="gap-1 w-fit">
@@ -282,7 +321,7 @@ const Production = () => {
                     </div>
                   )}
 
-                  {/* Print Files & Mark Ready Button */}
+                  {/* Print Files & Action Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3">
                     {order.attachments.length > 0 ? (
                       order.attachments.map((file, idx) => (
@@ -305,15 +344,27 @@ const Production = () => {
                       </Button>
                     )}
 
-                    <Button
-                      onClick={() => markAsReadyMutation.mutate(order.id)}
-                      disabled={markAsReadyMutation.isPending}
-                      className="flex-1 gap-2"
-                      size="lg"
-                    >
-                      <CheckCircle className="h-5 w-5" />
-                      Mark as Ready for Pickup
-                    </Button>
+                    {order.status === 'Ready for Production' ? (
+                      <Button
+                        onClick={() => startJobMutation.mutate(order.id)}
+                        disabled={startJobMutation.isPending}
+                        className="flex-1 gap-2 bg-amber-600 hover:bg-amber-700"
+                        size="lg"
+                      >
+                        <Cog className="h-5 w-5" />
+                        Start Job
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => markAsReadyMutation.mutate(order.id)}
+                        disabled={markAsReadyMutation.isPending}
+                        className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700"
+                        size="lg"
+                      >
+                        <CheckCircle className="h-5 w-5" />
+                        Mark as Ready
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>

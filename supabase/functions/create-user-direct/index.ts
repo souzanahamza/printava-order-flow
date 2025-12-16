@@ -13,17 +13,17 @@ serve(async (req) => {
   }
 
   try {
-    const { email, password, fullName, role, companyId } = await req.json();
-
-    // Validate required fields
-    if (!email || !password || !fullName || !role || !companyId) {
+    // Get and validate authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      console.error('No authorization header provided');
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Authorization required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create admin client
+    // Create admin client for privileged operations
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -35,6 +35,85 @@ serve(async (req) => {
       }
     );
 
+    // Create a client using the caller's JWT to verify their identity and role
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
+        },
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Get the current user from the JWT
+    const { data: { user: caller }, error: authError } = await supabaseClient.auth.getUser();
+    
+    if (authError || !caller) {
+      console.error('Failed to authenticate caller:', authError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Authenticated caller:', caller.id);
+
+    // Verify the caller has admin role using the user_roles table
+    const { data: callerRole, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role, company_id')
+      .eq('user_id', caller.id)
+      .single();
+
+    if (roleError || !callerRole) {
+      console.error('Failed to fetch caller role:', roleError);
+      return new Response(
+        JSON.stringify({ error: 'Unable to verify user role' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (callerRole.role !== 'admin') {
+      console.error('Caller is not an admin:', callerRole.role);
+      return new Response(
+        JSON.stringify({ error: 'Only admins can create users' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const callerCompanyId = callerRole.company_id;
+    console.log('Caller is admin of company:', callerCompanyId);
+
+    // Parse request body
+    const { email, password, fullName, role, companyId } = await req.json();
+
+    // Validate required fields
+    if (!email || !password || !fullName || !role) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: email, password, fullName, role' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate role is one of the allowed values
+    const allowedRoles = ['sales', 'designer', 'production', 'accountant'];
+    if (!allowedRoles.includes(role)) {
+      console.error('Invalid role requested:', role);
+      return new Response(
+        JSON.stringify({ error: `Invalid role. Allowed roles: ${allowedRoles.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Force the company ID to match the caller's company (ignore any provided companyId)
+    const targetCompanyId = callerCompanyId;
+    console.log('Creating user in company:', targetCompanyId, 'with role:', role);
+
     // Create user with admin client
     const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -43,7 +122,7 @@ serve(async (req) => {
       user_metadata: {
         full_name: fullName,
         role: role,
-        company_id: companyId
+        company_id: targetCompanyId
       }
     });
 

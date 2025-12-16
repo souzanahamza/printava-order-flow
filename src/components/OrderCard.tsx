@@ -1,5 +1,7 @@
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatCurrency } from "@/utils/formatCurrency";
+import { PriceDisplay } from "@/components/ui/price-display";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface OrderCardProps {
   id: string;
@@ -15,7 +17,10 @@ interface OrderCardProps {
   } | null;
   onClick?: () => void;
   showFullId?: boolean;
-  currency?: string;
+  currency?: string; // Base currency
+  foreignPrice?: number | null;
+  basePriceCompany?: number | null; // Price converted to base currency
+  currencyCode?: string; // Transaction currency code
 }
 
 export function OrderCard({
@@ -29,10 +34,17 @@ export function OrderCard({
   pricing_tier,
   onClick,
   showFullId = false,
-  currency = 'AED'
+  currency,
+  foreignPrice,
+  basePriceCompany,
+  currencyCode
 }: OrderCardProps) {
+  const { role, loading } = useUserRole();
+
+  // Role-based financial visibility
+  const canViewFinancials = !loading && ['admin', 'sales', 'accountant'].includes(role || '');
   return (
-    <div 
+    <div
       className="p-6 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
       onClick={onClick}
     >
@@ -60,10 +72,23 @@ export function OrderCard({
                 <span className="font-medium">{pricing_tier.label || pricing_tier.name}</span>
               </div>
             )}
-            <div>
-              <span className="text-muted-foreground">Total:</span>{" "}
-              <span className="font-semibold text-primary">{formatCurrency(total_price, currency)}</span>
-            </div>
+            {loading ? (
+              <div>
+                <span className="text-muted-foreground">Total:</span>{" "}
+                <Skeleton className="inline-block h-5 w-24" />
+              </div>
+            ) : canViewFinancials ? (
+              <div>
+                <span className="text-muted-foreground">Total:</span>{" "}
+                <PriceDisplay
+                  amount={foreignPrice || total_price}
+                  baseCurrency={currency}
+                  foreignCurrency={currencyCode}
+                  baseAmount={basePriceCompany || total_price}
+                  variant="stacked"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
 

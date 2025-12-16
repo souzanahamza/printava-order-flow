@@ -32,7 +32,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useOrderFileUpload } from "@/hooks/useOrderFileUpload";
 import { usePricingTiers } from "@/hooks/usePricingTiers";
+import { useCompanyCurrency, useExchangeRates, useCurrencies } from "@/hooks/useCurrencies";
 import { CalendarIcon, Plus, Trash2, Upload, UserPlus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -71,6 +73,7 @@ interface Client {
   email: string | null;
   phone: string | null;
   default_pricing_tier_id: string | null;
+  default_currency_id: string | null;
 }
 
 const NewOrder = () => {
@@ -78,23 +81,29 @@ const NewOrder = () => {
   const { user } = useAuth();
   const { companyId } = useUserRole();
   const { data: pricingTiers } = usePricingTiers();
-  
-  // Fetch company profile for currency
-  const { data: companyProfile } = useQuery({
-    queryKey: ['company-profile', companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('currency')
-        .eq('id', companyId)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!companyId,
-  });
-  
-  const currency = companyProfile?.currency || 'AED';
+  const { data: companyCurrency } = useCompanyCurrency();
+  const { data: currencies } = useCurrencies();
+  const { data: exchangeRates } = useExchangeRates();
+
+  // Currency state
+  const [selectedCurrencyId, setSelectedCurrencyId] = useState<string | null>(null);
+  const [currentExchangeRate, setCurrentExchangeRate] = useState<number>(1);
+  const [isManualRate, setIsManualRate] = useState(false);
+
+  // Get base currency info from the joined relation
+  const baseCurrencyId = companyCurrency?.currency_id;
+  const baseCurrencyCode = companyCurrency?.base_currency?.code;
+
+
+  // Get selected currency info
+  const selectedCurrency = currencies?.find(c => c.id === selectedCurrencyId);
+  const selectedCurrencyCode = selectedCurrency?.code || baseCurrencyCode;
+
+  // Build available currencies (base + those with active exchange rates)
+  const availableCurrencies = currencies?.filter(c =>
+    c.id === baseCurrencyId || exchangeRates?.some(r => r.currency_id === c.id)
+  ) || [];
+
   const [deliveryDate, setDeliveryDate] = useState<Date>();
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -124,6 +133,22 @@ const NewOrder = () => {
     notes: "",
   });
 
+  // Initialize selected currency to base currency when loaded
+  useEffect(() => {
+    if (baseCurrencyId && !selectedCurrencyId) {
+      setSelectedCurrencyId(baseCurrencyId);
+      setCurrentExchangeRate(1);
+    }
+  }, [baseCurrencyId, selectedCurrencyId]);
+
+  const clientNameForUpload = formData.client_name || selectedClient?.full_name || "Client";
+
+  const orderFileUpload = useOrderFileUpload({
+    orderId: "",
+    clientName: clientNameForUpload,
+    companyId: companyId || "",
+  });
+
   // Fetch products and clients
   useEffect(() => {
     const fetchProducts = async () => {
@@ -131,7 +156,7 @@ const NewOrder = () => {
         .from("products")
         .select("*")
         .order("name_en");
-      
+
       if (data) setProducts(data);
     };
 
@@ -140,7 +165,7 @@ const NewOrder = () => {
         .from("clients")
         .select("*")
         .order("full_name");
-      
+
       if (data) setClients(data);
     };
 
@@ -175,7 +200,62 @@ const NewOrder = () => {
       recalculatePrices(tier);
     }
 
+    // Auto-select currency if client has default
+    if (client.default_currency_id) {
+      handleCurrencyChange(client.default_currency_id);
+    }
+
     setOpenClientPopover(false);
+  };
+
+  // Handle currency selection
+  const handleCurrencyChange = (currencyId: string) => {
+    setSelectedCurrencyId(currencyId);
+
+    let newRate = 1;
+    
+    // If base currency, rate is 1
+    if (currencyId === baseCurrencyId) {
+      setCurrentExchangeRate(1);
+      setIsManualRate(false);
+    } else {
+      // Find the latest exchange rate for this currency
+      const rate = exchangeRates?.find(r => r.currency_id === currencyId);
+      if (rate) {
+        newRate = rate.rate_to_company_currency;
+        setCurrentExchangeRate(newRate);
+        setIsManualRate(false);
+      } else {
+        setCurrentExchangeRate(1);
+        setIsManualRate(true);
+      }
+    }
+    
+    // Recalculate prices with new exchange rate
+    recalculatePricesWithRate(newRate);
+  };
+  
+  // Helper to recalculate prices with a specific exchange rate
+  const recalculatePricesWithRate = (exchangeRate: number) => {
+    if (orderItems.length === 0) return;
+
+    const updatedItems = orderItems.map((item) => {
+      const product = products.find((p) => p.id === item.product_id);
+      if (!product) return item;
+
+      const basePrice = product.unit_price;
+      const markup = selectedTier ? selectedTier.markup_percent / 100 : 0;
+      const basePriceWithMarkup = basePrice + basePrice * markup;
+      const unitPrice = basePriceWithMarkup / exchangeRate;
+
+      return {
+        ...item,
+        unit_price: unitPrice,
+        item_total: unitPrice * item.quantity,
+      };
+    });
+
+    setOrderItems(updatedItems);
   };
 
   const handleNewClientSubmit = async () => {
@@ -229,9 +309,13 @@ const NewOrder = () => {
   };
 
   const updateOrderItem = (index: number, product: Product) => {
-    const basePrice = product.unit_price;
+    const basePrice = product.unit_price; // Price in base currency (e.g., AED)
     const markup = selectedTier ? selectedTier.markup_percent / 100 : 0;
-    const unitPrice = basePrice + basePrice * markup;
+    const basePriceWithMarkup = basePrice + basePrice * markup;
+    
+    // Convert to transaction currency (divide by exchange rate)
+    // If base currency selected, rate is 1, so no conversion
+    const unitPrice = basePriceWithMarkup / currentExchangeRate;
     const quantity = orderItems[index]?.quantity || 1;
 
     const updatedItems = [...orderItems];
@@ -256,16 +340,19 @@ const NewOrder = () => {
     setOrderItems(updatedItems);
   };
 
-  const recalculatePrices = (tier: any) => {
+  const recalculatePrices = (tier: any, exchangeRate: number = currentExchangeRate) => {
     if (orderItems.length === 0) return;
 
     const updatedItems = orderItems.map((item) => {
       const product = products.find((p) => p.id === item.product_id);
       if (!product) return item;
 
-      const basePrice = product.unit_price;
+      const basePrice = product.unit_price; // Price in base currency
       const markup = tier ? tier.markup_percent / 100 : 0;
-      const unitPrice = basePrice + basePrice * markup;
+      const basePriceWithMarkup = basePrice + basePrice * markup;
+      
+      // Convert to transaction currency
+      const unitPrice = basePriceWithMarkup / exchangeRate;
 
       return {
         ...item,
@@ -290,12 +377,33 @@ const NewOrder = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setSelectedFiles(Array.from(e.target.files));
+      // Append new files to existing selection
+      setSelectedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
     }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!companyId) {
+      toast.error("No company selected for your profile");
+      return;
+    }
+
+    if (!user?.id) {
+      toast.error("You must be signed in to create an order");
+      return;
+    }
 
     if (!deliveryDate) {
       toast.error("Please select a delivery date");
@@ -316,9 +424,13 @@ const NewOrder = () => {
 
     try {
       // Determine initial status based on design requirement
-      const initialStatus = requiresDesign ? "In Design" : "Pending Payment";
+      const initialStatus = requiresDesign ? "Ready for Design" : "Pending Payment";
 
-      // Insert order
+      // Calculate multi-currency totals
+      const totalForeign = calculateTotal(); // Total in selected currency
+      const totalCompany = totalForeign * currentExchangeRate; // Converted to company base currency
+
+      // Insert order with multi-currency fields
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -330,7 +442,11 @@ const NewOrder = () => {
           delivery_method: formData.delivery_method,
           pricing_tier_id: formData.pricing_tier_id || null,
           notes: formData.notes,
-          total_price: calculateTotal(),
+          total_price: totalForeign, // Legacy field - keep for backwards compatibility
+          total_price_foreign: totalForeign,
+          total_price_company: totalCompany,
+          currency_id: selectedCurrencyId,
+          exchange_rate: currentExchangeRate,
           status: initialStatus,
           company_id: companyId,
         })
@@ -355,36 +471,21 @@ const NewOrder = () => {
 
       if (itemsError) throw itemsError;
 
-      // Upload files if any
+      // Upload files if any using the smart file upload hook
       if (selectedFiles.length > 0) {
+        const fileType = requiresDesign ? "client_reference" : "print_file";
         for (const file of selectedFiles) {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${companyId}/${order.id}/${Date.now()}_${file.name}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('order-files')
-            .upload(fileName, file);
-
-          if (uploadError) {
-            console.error('File upload error:', uploadError);
-            continue;
-          }
-
-          // Insert attachment record
-          const { error: attachmentError } = await supabase
-            .from('order_attachments')
-            .insert({
-              order_id: order.id,
-              file_name: file.name,
-              file_url: fileName,
-              file_type: requiresDesign ? 'client_reference' : 'print_file',
-              file_size: file.size,
-              uploader_id: user?.id,
-              company_id: companyId,
+          try {
+            await orderFileUpload.uploadFileAsync({
+              file,
+              fileType,
+              uploaderId: user.id,
+              orderIdOverride: order.id,
+              clientNameOverride: order.client_name || clientNameForUpload,
             });
-
-          if (attachmentError) {
-            console.error('Attachment record error:', attachmentError);
+          } catch (uploadError) {
+            console.error("File upload error:", uploadError);
+            toast.error("Some files failed to upload");
           }
         }
       }
@@ -457,7 +558,7 @@ const NewOrder = () => {
                     </Command>
                   </PopoverContent>
                 </Popover>
-                
+
                 <Dialog open={isNewClientDialogOpen} onOpenChange={setIsNewClientDialogOpen}>
                   <DialogTrigger asChild>
                     <Button type="button" variant="outline" size="icon">
@@ -586,8 +687,27 @@ const NewOrder = () => {
               </div>
             </div>
 
-            {/* Delivery Method and Pricing Tier */}
+            {/* Currency and Delivery Method */}
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Transaction Currency</Label>
+                <Select
+                  value={selectedCurrencyId || ""}
+                  onValueChange={handleCurrencyChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCurrencies.map((curr) => (
+                      <SelectItem key={curr.id} value={curr.id}>
+                        {curr.code} - {curr.name}
+                        {curr.id === baseCurrencyId && " (Base)"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="delivery_method">Delivery Method</Label>
                 <Select
@@ -606,24 +726,56 @@ const NewOrder = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="pricing_tier">Pricing Tier</Label>
-                <Select
-                  value={formData.pricing_tier_id}
-                  onValueChange={handleTierChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select pricing tier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(pricingTiers || []).map((tier) => (
-                      <SelectItem key={tier.id} value={tier.id}>
-                        {tier.label || tier.name} (+{tier.markup_percent}%)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            </div>
+
+            {/* Exchange Rate (shown when non-base currency) */}
+            {selectedCurrencyId && selectedCurrencyId !== baseCurrencyId && (
+              <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Exchange Rate</Label>
+                  <span className="text-xs text-muted-foreground">
+                    1 {selectedCurrencyCode} = {currentExchangeRate.toFixed(4)} {baseCurrencyCode}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    step="0.0001"
+                    min="0.0001"
+                    value={currentExchangeRate}
+                    onChange={(e) => {
+                      const newRate = parseFloat(e.target.value) || 1;
+                      setCurrentExchangeRate(newRate);
+                      setIsManualRate(true);
+                      recalculatePricesWithRate(newRate);
+                    }}
+                    className="w-32"
+                  />
+                  <span className="text-sm text-muted-foreground flex-1">
+                    {isManualRate ? "(Manual override)" : "(Auto-fetched)"}
+                  </span>
+                </div>
               </div>
+            )}
+
+            {/* Pricing Tier */}
+            <div className="space-y-2">
+              <Label htmlFor="pricing_tier">Pricing Tier</Label>
+              <Select
+                value={formData.pricing_tier_id}
+                onValueChange={handleTierChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select pricing tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(pricingTiers || []).map((tier) => (
+                    <SelectItem key={tier.id} value={tier.id}>
+                      {tier.label || tier.name} (+{tier.markup_percent}%)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Notes */}
@@ -659,26 +811,63 @@ const NewOrder = () => {
             </div>
 
             {/* File Upload */}
-            <div className="space-y-2">
-              <Label htmlFor="files">
+            <div className="space-y-3">
+              <Label>
                 {requiresDesign
                   ? "Reference Assets (Logos, Images)"
                   : "Ready-to-Print Files"}
               </Label>
-              <div className="flex items-center gap-2">
+              <div
+                className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                onClick={() => document.getElementById("file-input")?.click()}
+              >
+                <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Click to select files or drag and drop
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  You can select multiple files
+                </p>
                 <Input
-                  id="files"
+                  id="file-input"
                   type="file"
                   multiple
                   onChange={handleFileChange}
-                  className="flex-1"
+                  className="hidden"
                 />
-                <Upload className="h-4 w-4 text-muted-foreground" />
               </div>
+
+              {/* Selected Files List */}
               {selectedFiles.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {selectedFiles.length} file(s) selected
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {selectedFiles.length} file(s) selected
+                  </p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {selectedFiles.map((file, index) => (
+                      <div
+                        key={`${file.name}-${index}`}
+                        className="flex items-center justify-between p-2 bg-muted/50 rounded-md border"
+                      >
+                        <div className="flex-1 min-w-0 mr-2">
+                          <p className="text-sm font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatFileSize(file.size)}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => removeFile(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </CardContent>
@@ -775,7 +964,7 @@ const NewOrder = () => {
                       <Label>Unit Price</Label>
                       <Input
                         type="text"
-                        value={formatCurrency(item.unit_price, currency)}
+                        value={formatCurrency(item.unit_price, selectedCurrencyCode)}
                         readOnly
                         className="bg-muted"
                       />
@@ -787,7 +976,7 @@ const NewOrder = () => {
                       <div className="flex gap-2">
                         <Input
                           type="text"
-                          value={formatCurrency(item.item_total, currency)}
+                          value={formatCurrency(item.item_total, selectedCurrencyCode)}
                           readOnly
                           className="bg-muted"
                         />
@@ -812,8 +1001,13 @@ const NewOrder = () => {
                 <div className="text-right space-y-1">
                   <p className="text-sm text-muted-foreground">Total Order Price</p>
                   <p className="text-2xl font-bold text-foreground">
-                    {formatCurrency(calculateTotal(), currency)}
+                    {formatCurrency(calculateTotal(), selectedCurrencyCode)}
                   </p>
+                  {selectedCurrencyId !== baseCurrencyId && (
+                    <p className="text-sm text-muted-foreground">
+                      ≈ {formatCurrency(calculateTotal() * currentExchangeRate, baseCurrencyCode)} (converted)
+                    </p>
+                  )}
                 </div>
               </div>
             )}

@@ -57,10 +57,10 @@ export function useConfirmPayment() {
         throw new Error("Please select a payment method");
       }
 
-      const inProductionStatus = statuses?.find(s => s.name === "In Production");
+      const readyForProductionStatus = statuses?.find(s => s.name === "Ready for Production");
       
-      if (!inProductionStatus) {
-        throw new Error("In Production status not found");
+      if (!readyForProductionStatus) {
+        throw new Error("Ready for Production status not found");
       }
 
       const { error } = await supabase
@@ -69,7 +69,7 @@ export function useConfirmPayment() {
           payment_method: paymentMethod,
           payment_status: paymentStatus,
           paid_amount: paidAmount,
-          status: inProductionStatus.name,
+          status: readyForProductionStatus.name,
         })
         .eq("id", orderId);
 
@@ -78,7 +78,7 @@ export function useConfirmPayment() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["order-details", variables.orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Order sent to production");
+      toast.success("Order queued for production");
       
       if (variables.onSuccess) {
         variables.onSuccess();

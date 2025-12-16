@@ -35,7 +35,7 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ['admin', 'sales', 'designer', 'accountant'] },
-  { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'accountant'] },
+  { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'accountant', 'production'] },
   { title: "New Order", url: "/new-order", icon: Plus, roles: ['admin', 'sales'] },
   { title: "Clients", url: "/clients", icon: UserCircle, roles: ['admin', 'sales', 'accountant'] },
   { title: "Products", url: "/products", icon: Package, roles: ['admin', 'sales', 'accountant', 'production'] },

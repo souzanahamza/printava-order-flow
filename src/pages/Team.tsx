@@ -47,7 +47,8 @@ interface TeamMember {
   email: string | null;
 }
 
-const ROLES = ['admin', 'sales', 'designer', 'accountant', 'production', 'packaging'];
+// Note: 'admin' is excluded from new user creation - admins can only be created through signup
+const ROLES = ['sales', 'designer', 'accountant', 'production'];
 
 export default function Team() {
   const { user } = useAuth();
@@ -76,14 +77,31 @@ export default function Team() {
 
   const fetchTeamMembers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch profiles
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, full_name, role, email')
+        .select('id, full_name, email')
         .eq('company_id', companyId)
         .order('full_name');
 
-      if (error) throw error;
-      setTeamMembers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Fetch roles from user_roles table
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role')
+        .eq('company_id', companyId);
+
+      if (rolesError) throw rolesError;
+
+      // Merge profiles with roles
+      const rolesMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
+      const membersWithRoles = (profiles || []).map(profile => ({
+        ...profile,
+        role: rolesMap.get(profile.id) || null
+      }));
+
+      setTeamMembers(membersWithRoles);
     } catch (error) {
       console.error('Error fetching team members:', error);
       toast.error('Failed to load team members');
@@ -136,15 +154,21 @@ export default function Team() {
         return;
       }
 
-      const { error } = await supabase
+      // Update profile (name only - role is in separate table)
+      const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
-          full_name: editedMember.fullName,
-          role: editedMember.role 
-        })
+        .update({ full_name: editedMember.fullName })
         .eq('id', selectedMember.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Update role in user_roles table
+      const { error: roleError } = await supabase
+        .from('user_roles')
+        .update({ role: editedMember.role as 'admin' | 'sales' | 'designer' | 'production' | 'accountant' })
+        .eq('user_id', selectedMember.id);
+
+      if (roleError) throw roleError;
       
       toast.success('Member updated successfully');
       fetchTeamMembers();

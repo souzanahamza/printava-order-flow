@@ -22,7 +22,7 @@ interface DeliveryActionProps {
   currency?: string;
 }
 
-export function DeliveryAction({ order, onSuccess, currency = 'AED' }: DeliveryActionProps) {
+export function DeliveryAction({ order, onSuccess, currency }: DeliveryActionProps) {
   const queryClient = useQueryClient();
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
 

@@ -24,13 +24,24 @@ export function useUserRole() {
 
     const fetchProfile = async () => {
       try {
+        // Fetch profile data
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('id, full_name, role, company_id')
+          .select('id, full_name, company_id')
           .eq('id', user.id)
           .single();
 
         if (profileError) throw profileError;
+
+        // Fetch role from user_roles table (secure, separate from profile)
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        // Role might not exist for legacy users, fallback gracefully
+        const userRole = roleError ? null : roleData?.role;
 
         // Fetch company name if company_id exists
         let companyName = null;
@@ -44,7 +55,11 @@ export function useUserRole() {
           companyName = companyData?.name;
         }
 
-        setProfile({ ...profileData, company_name: companyName });
+        setProfile({ 
+          ...profileData, 
+          role: userRole,
+          company_name: companyName 
+        });
       } catch (error) {
         console.error('Error fetching user profile:', error);
         setProfile(null);

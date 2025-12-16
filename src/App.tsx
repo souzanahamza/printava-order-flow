@@ -17,7 +17,6 @@ import Products from "./pages/Products";
 import DesignApprovals from "./pages/DesignApprovals";
 import Production from "./pages/Production";
 import Shipping from "./pages/Shipping";
-import UsersManagement from "./pages/UsersManagement";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Team from "./pages/Team";
@@ -59,125 +58,124 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<SignUp />} />
-            
+
             {/* Home - redirects based on role */}
-            <Route 
-              path="/" 
+            <Route
+              path="/"
               element={
                 <ProtectedRoute>
                   <Layout>
                     <HomeRedirect />
                   </Layout>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* Protected routes with role restrictions */}
-            <Route 
-              path="/orders" 
+            <Route
+              path="/orders"
               element={
                 <ProtectedRoute>
-                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'designer', 'accountant']}>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'designer', 'accountant', 'production']}>
                     <Layout><Orders /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/new-order" 
+
+            <Route
+              path="/new-order"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin', 'sales']}>
                     <Layout><NewOrder /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/clients" 
+
+            <Route
+              path="/clients"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin', 'sales', 'accountant']}>
                     <Layout><Clients /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/products" 
+
+            <Route
+              path="/products"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin', 'sales', 'accountant', 'production']}>
                     <Layout><Products /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/production" 
+
+            <Route
+              path="/production"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin', 'production']}>
                     <Layout><Production /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* Admin-only routes */}
-            <Route 
-              path="/team" 
+            <Route
+              path="/team"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin']}>
                     <Layout><Team /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/settings" 
+
+            <Route
+              path="/settings"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin']}>
                     <Layout><Settings /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/settings/statuses" 
+
+            <Route
+              path="/settings/statuses"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin']}>
                     <Layout><StatusSettings /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
-            <Route 
-              path="/settings/pricing" 
+
+            <Route
+              path="/settings/pricing"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin']}>
                     <Layout><PricingSettings /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* Legacy routes - kept for backward compatibility */}
             <Route path="/design-approvals" element={<ProtectedRoute><Layout><DesignApprovals /></Layout></ProtectedRoute>} />
             <Route path="/shipping" element={<ProtectedRoute><Layout><Shipping /></Layout></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute><Layout><UsersManagement /></Layout></ProtectedRoute>} />
-            
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
