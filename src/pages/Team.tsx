@@ -127,11 +127,29 @@ export default function Team() {
         },
       });
 
-      if (error) throw error;
+      const getEdgeFunctionErrorMessage = (err: any) => {
+        const body = err?.context?.body;
+        if (typeof body === 'string') {
+          try {
+            const parsed = JSON.parse(body);
+            if (parsed?.error) return String(parsed.error);
+          } catch {
+            // ignore JSON parse errors
+          }
+        }
+        if (body?.error) return String(body.error);
+        return err?.message ? String(err.message) : 'Failed to add team member';
+      };
 
-      // Check if the response contains an error
-      if (data?.error) {
-        toast.error(data.error);
+      // If the function returns a non-2xx response, Supabase will populate `error`
+      if (error) {
+        toast.error(getEdgeFunctionErrorMessage(error));
+        return;
+      }
+
+      // Our edge function returns 200 for both success/failure; check payload
+      if (!data?.success) {
+        toast.error(String(data?.error ?? 'Failed to add team member'));
         return;
       }
 
@@ -139,9 +157,9 @@ export default function Team() {
       setIsAddDialogOpen(false);
       setNewMember({ email: '', fullName: '', role: 'sales', password: '' });
       fetchTeamMembers();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding member:', error);
-      toast.error('Failed to add team member');
+      toast.error(error?.message ? String(error.message) : 'Failed to add team member');
     }
   };
 

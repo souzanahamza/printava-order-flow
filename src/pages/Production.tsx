@@ -35,6 +35,10 @@ type ProductionOrder = {
     file_url: string;
     file_name: string;
   }>;
+  designMockups: Array<{
+    file_url: string;
+    file_name: string;
+  }>;
 };
 
 const Production = () => {
@@ -69,7 +73,7 @@ const Production = () => {
 
       if (error) throw error;
 
-      // Fetch print files and client files for each order
+      // Fetch print files, client files, and design mockups for each order
       const ordersWithFiles = await Promise.all(
         (data || []).map(async (order) => {
           const { data: printFiles } = await supabase
@@ -84,10 +88,17 @@ const Production = () => {
             .eq('order_id', order.id)
             .eq('file_type', 'client_reference');
 
+          const { data: designMockups } = await supabase
+            .from('order_attachments')
+            .select('file_url, file_name')
+            .eq('order_id', order.id)
+            .eq('file_type', 'design_mockup');
+
           return {
             ...order,
             attachments: printFiles || [],
-            clientFiles: clientFiles || []
+            clientFiles: clientFiles || [],
+            designMockups: designMockups || []
           };
         })
       );
@@ -175,9 +186,9 @@ const Production = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Production Queue</h1>
-        <p className="text-muted-foreground">Orders ready for production, sorted by delivery urgency</p>
+      <div className="px-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Production Queue</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Orders ready for production, sorted by delivery urgency</p>
       </div>
 
       {orders.length === 0 ? (
@@ -189,24 +200,27 @@ const Production = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 px-2 sm:px-0">
           {orders.map((order) => (
             <Card key={order.id} className={`hover:shadow-lg transition-shadow ${order.status === 'In Production' ? 'border-blue-500/50 ring-1 ring-blue-500/20' : ''}`}>
-              <CardHeader className="pb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <CardTitle className="text-xl font-bold">{order.id}</CardTitle>
+              <CardHeader className="pb-4 px-4 sm:px-6">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-lg sm:text-xl font-bold truncate">{order.id}</CardTitle>
+                    <Badge variant="outline" className="gap-1 shrink-0">
+                      <Calendar className="h-3 w-3" />
+                      <span className="hidden sm:inline">{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
+                      <span className="sm:hidden">{format(new Date(order.created_at), 'MMM d')}</span>
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
                     {getStatusBadge(order.status)}
                     {getUrgencyBadge(order.delivery_date)}
                   </div>
-                  <Badge variant="outline" className="gap-1 w-fit">
-                    <Calendar className="h-3 w-3" />
-                    {format(new Date(order.created_at), 'MMM d, yyyy')}
-                  </Badge>
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-4 sm:px-6">
                 {/* Client Information */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div className="space-y-1">
@@ -214,9 +228,9 @@ const Production = () => {
                       <User className="h-4 w-4" />
                       <span className="font-medium">Client</span>
                     </div>
-                    <p className="text-base font-semibold ml-6">{order.client_name}</p>
+                    <p className="text-sm sm:text-base font-semibold ml-6 break-words">{order.client_name}</p>
                     {order.phone && (
-                      <p className="text-sm text-muted-foreground ml-6">{order.phone}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground ml-6">{order.phone}</p>
                     )}
                   </div>
 
@@ -225,8 +239,9 @@ const Production = () => {
                       <Truck className="h-4 w-4" />
                       <span className="font-medium">Delivery</span>
                     </div>
-                    <p className="text-base font-semibold ml-6">
-                      {format(new Date(order.delivery_date), 'EEEE, MMM d, yyyy')}
+                    <p className="text-sm sm:text-base font-semibold ml-6">
+                      <span className="hidden sm:inline">{format(new Date(order.delivery_date), 'EEEE, MMM d, yyyy')}</span>
+                      <span className="sm:hidden">{format(new Date(order.delivery_date), 'MMM d, yyyy')}</span>
                     </p>
                     {order.delivery_method && (
                       <Badge variant="secondary" className="ml-6 mt-1">
@@ -248,27 +263,27 @@ const Production = () => {
                     {order.order_items.map((item, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between p-3 bg-background border rounded-lg"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 bg-background border rounded-lg"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
                           {item.product.image_url ? (
                             <img
                               src={item.product.image_url}
                               alt={item.product.name_en}
-                              className="h-12 w-12 rounded-lg object-cover border"
+                              className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg object-cover border shrink-0"
                             />
                           ) : (
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted border">
+                            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-lg bg-muted border shrink-0">
                               <PackageIcon className="h-6 w-6 text-muted-foreground" />
                             </div>
                           )}
-                          <div>
-                            <p className="font-medium">{item.product.name_en}</p>
-                            <p className="text-sm text-muted-foreground">SKU: {item.product.sku}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm sm:text-base truncate">{item.product.name_en}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">SKU: {item.product.sku}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="font-semibold">
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <Badge variant="secondary" className="font-semibold text-sm">
                             {item.quantity}x
                           </Badge>
                         </div>
@@ -295,52 +310,88 @@ const Production = () => {
 
                 {/* Actions */}
                 <div className="flex flex-col gap-3">
-                  {/* Client Files */}
-                  {order.clientFiles.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                        <FileText className="h-4 w-4" />
-                        Client Files & Assets
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {order.clientFiles.map((file, idx) => (
-                          <Button
-                            key={idx}
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            asChild
-                          >
-                            <a href={file.file_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                              {file.file_name}
-                            </a>
-                          </Button>
-                        ))}
-                      </div>
+                  {/* Client Files & Design Mockups */}
+                  {(order.clientFiles.length > 0 || order.designMockups.length > 0) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Client Files */}
+                      {order.clientFiles.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                            <FileText className="h-4 w-4" />
+                            Client Files & Assets
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+                            {order.clientFiles.map((file, idx) => (
+                              <Button
+                                key={idx}
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 justify-start w-full sm:w-auto"
+                                asChild
+                              >
+                                <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="truncate">
+                                  <Download className="h-4 w-4 shrink-0" />
+                                  <span className="truncate">{file.file_name}</span>
+                                </a>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Design Mockups */}
+                      {order.designMockups.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                            <FileText className="h-4 w-4" />
+                            Design Mockups
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+                            {order.designMockups.map((file, idx) => (
+                              <Button
+                                key={idx}
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 justify-start w-full sm:w-auto"
+                                asChild
+                              >
+                                <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="truncate">
+                                  <Download className="h-4 w-4 shrink-0" />
+                                  <span className="truncate">{file.file_name}</span>
+                                </a>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Print Files & Action Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3">
                     {order.attachments.length > 0 ? (
-                      order.attachments.map((file, idx) => (
-                        <Button
-                          key={idx}
-                          variant="outline"
-                          className="flex-1 gap-2"
-                          asChild
-                        >
-                          <a href={file.file_url} target="_blank" rel="noopener noreferrer">
-                            <Download className="h-4 w-4" />
-                            Download Print File
-                          </a>
-                        </Button>
-                      ))
+                      <Button
+                        variant="outline"
+                        className="flex-1 gap-2 min-w-0"
+                        onClick={() => {
+                          order.attachments.forEach((file) => {
+                            window.open(file.file_url, '_blank', 'noopener,noreferrer');
+                          });
+                        }}
+                      >
+                        <Download className="h-4 w-4 shrink-0" />
+                        <span className="hidden sm:inline">
+                          Download Print File{order.attachments.length > 1 ? `s (${order.attachments.length})` : ''}
+                        </span>
+                        <span className="sm:hidden truncate">
+                          Print File{order.attachments.length > 1 ? `s (${order.attachments.length})` : ''}
+                        </span>
+                      </Button>
                     ) : (
-                      <Button variant="outline" disabled className="flex-1">
-                        <AlertCircle className="h-4 w-4 mr-2" />
-                        No Print File Available
+                      <Button variant="outline" disabled className="flex-1 min-w-0">
+                        <AlertCircle className="h-4 w-4 mr-2 shrink-0" />
+                        <span className="hidden sm:inline">No Print File Available</span>
+                        <span className="sm:hidden truncate">No Print File</span>
                       </Button>
                     )}
 
@@ -348,21 +399,21 @@ const Production = () => {
                       <Button
                         onClick={() => startJobMutation.mutate(order.id)}
                         disabled={startJobMutation.isPending}
-                        className="flex-1 gap-2 bg-amber-600 hover:bg-amber-700"
+                        className="flex-1 gap-2 bg-amber-600 hover:bg-amber-700 min-w-0"
                         size="lg"
                       >
-                        <Cog className="h-5 w-5" />
-                        Start Job
+                        <Cog className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+                        <span className="truncate">Start Job</span>
                       </Button>
                     ) : (
                       <Button
                         onClick={() => markAsReadyMutation.mutate(order.id)}
                         disabled={markAsReadyMutation.isPending}
-                        className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700"
+                        className="flex-1 gap-2 bg-emerald-600 hover:bg-emerald-700 min-w-0"
                         size="lg"
                       >
-                        <CheckCircle className="h-5 w-5" />
-                        Mark as Ready
+                        <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+                        <span className="truncate">Mark as Ready</span>
                       </Button>
                     )}
                   </div>

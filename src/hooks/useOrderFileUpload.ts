@@ -4,27 +4,12 @@ import { toast } from "sonner";
 
 export type FileType = 'design_mockup' | 'print_file' | 'client_reference';
 
-interface UseOrderFileUploadProps {
-    orderId: string;
-    clientName: string;
-    companyId: string;
-    bucketName?: string;
-}
-
-interface UploadFileParams {
-    file: File;
-    fileType: FileType;
-    uploaderId: string;
-    orderIdOverride?: string;
-    clientNameOverride?: string;
-}
-
 /**
  * Smart File Renaming Utility
  * Pattern: ORD-{orderIdShort}_{SanitizedClientName}_{FileType}_{Timestamp}.{ext}
  * Example: ORD-a1b2c3d4_Brain_Socket_PROOF_1702656000000.pdf
  */
-function generateSmartFileName(
+export function generateSmartFileName(
     orderId: string,
     clientName: string,
     fileType: FileType,
@@ -34,14 +19,13 @@ function generateSmartFileName(
     const orderIdShort = orderId.slice(0, 8);
 
     // 2. Sanitize client name: remove special chars, replace spaces with underscores
-    // Fallback to "Order" if clientName is empty/null
     const rawClientName = clientName?.trim() || "Order";
     const sanitizedClientName = rawClientName
-        .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special chars (keep letters, numbers, spaces)
-        .replace(/\s+/g, '_') // Replace spaces with underscores
-        .replace(/_+/g, '_') // Replace multiple underscores with single
-        .substring(0, 30) // Limit length
-        || "Order"; // Final fallback if sanitization results in empty string
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .substring(0, 30)
+        || "Order";
 
     // 3. Convert file type to shortcode
     const fileTypeShortcode: Record<FileType, string> = {
@@ -60,6 +44,22 @@ function generateSmartFileName(
     // 6. Construct final name
     return `ORD-${orderIdShort}_${sanitizedClientName}_${shortcode}_${timestamp}.${extension}`;
 }
+
+interface UseOrderFileUploadProps {
+    orderId: string;
+    clientName: string;
+    companyId: string;
+    bucketName?: string;
+}
+
+interface UploadFileParams {
+    file: File;
+    fileType: FileType;
+    uploaderId: string;
+    orderIdOverride?: string;
+    clientNameOverride?: string;
+}
+
 
 /**
  * Custom hook for uploading files to orders with smart file naming

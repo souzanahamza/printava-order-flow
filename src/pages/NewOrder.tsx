@@ -32,10 +32,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { useOrderFileUpload } from "@/hooks/useOrderFileUpload";
+import { useOrderFileUpload, generateSmartFileName, type FileType } from "@/hooks/useOrderFileUpload";
 import { usePricingTiers } from "@/hooks/usePricingTiers";
 import { useCompanyCurrency, useExchangeRates, useCurrencies } from "@/hooks/useCurrencies";
-import { CalendarIcon, Plus, Trash2, Upload, UserPlus } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Upload, UserPlus, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -76,6 +77,15 @@ interface Client {
   default_currency_id: string | null;
 }
 
+interface UploadedFile {
+  tempId: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  status: 'uploading' | 'success' | 'error';
+  error?: string;
+}
+
 const NewOrder = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -114,7 +124,7 @@ const NewOrder = () => {
   const [openProductPopover, setOpenProductPopover] = useState<number | null>(null);
   const [openClientPopover, setOpenClientPopover] = useState(false);
   const [requiresDesign, setRequiresDesign] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [newClientForm, setNewClientForm] = useState({
     full_name: "",
@@ -375,15 +385,74 @@ const NewOrder = () => {
     return orderItems.reduce((sum, item) => sum + item.item_total, 0);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      // Append new files to existing selection
-      setSelectedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+  // Upload file immediately when selected
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    if (!companyId || !user?.id) {
+      toast.error("Please ensure you're logged in before uploading files");
+      return;
     }
+
+    const files = Array.from(e.target.files);
+    
+    // Upload each file immediately
+    for (const file of files) {
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Add file with uploading status
+      setUploadedFiles(prev => [...prev, {
+        tempId,
+        fileName: file.name,
+        fileUrl: '',
+        fileSize: file.size,
+        status: 'uploading'
+      }]);
+
+      try {
+        // Upload to temp folder in storage
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || 'file';
+        const sanitizedClientName = (clientNameForUpload || 'Order')
+          .replace(/[^a-zA-Z0-9\s]/g, '')
+          .replace(/\s+/g, '_')
+          .substring(0, 30) || 'Order';
+        const storagePath = `${companyId}/pending/${tempId}_${sanitizedClientName}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('order-files')
+          .upload(storagePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('order-files')
+          .getPublicUrl(storagePath);
+
+        // Update file status to success
+        setUploadedFiles(prev => prev.map(f => 
+          f.tempId === tempId 
+            ? { ...f, fileUrl: publicUrl, status: 'success' as const }
+            : f
+        ));
+        
+        toast.success(`${file.name} uploaded`);
+      } catch (error) {
+        console.error('File upload error:', error);
+        // Update file status to error
+        setUploadedFiles(prev => prev.map(f => 
+          f.tempId === tempId 
+            ? { ...f, status: 'error' as const, error: (error as Error).message }
+            : f
+        ));
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+    
+    // Reset input
+    e.target.value = '';
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  const removeFile = (tempId: string) => {
+    setUploadedFiles(prev => prev.filter(f => f.tempId !== tempId));
   };
 
   const formatFileSize = (bytes: number) => {
@@ -471,22 +540,38 @@ const NewOrder = () => {
 
       if (itemsError) throw itemsError;
 
-      // Upload files if any using the smart file upload hook
-      if (selectedFiles.length > 0) {
-        const fileType = requiresDesign ? "client_reference" : "print_file";
-        for (const file of selectedFiles) {
-          try {
-            await orderFileUpload.uploadFileAsync({
-              file,
-              fileType,
-              uploaderId: user.id,
-              orderIdOverride: order.id,
-              clientNameOverride: order.client_name || clientNameForUpload,
-            });
-          } catch (uploadError) {
-            console.error("File upload error:", uploadError);
-            toast.error("Some files failed to upload");
-          }
+      // Link already-uploaded files to the order with smart file names
+      const successfulUploads = uploadedFiles.filter(f => f.status === 'success' && f.fileUrl);
+      if (successfulUploads.length > 0) {
+        const fileType: FileType = requiresDesign ? "client_reference" : "print_file";
+        
+        const attachmentsToInsert = successfulUploads.map(file => {
+          // Generate smart file name using order ID and client name
+          const smartFileName = generateSmartFileName(
+            order.id,
+            order.client_name,
+            fileType,
+            file.fileName
+          );
+          
+          return {
+            order_id: order.id,
+            company_id: companyId,
+            file_url: file.fileUrl,
+            file_name: smartFileName,
+            file_type: fileType,
+            file_size: file.fileSize,
+            uploader_id: user.id,
+          };
+        });
+
+        const { error: attachmentsError } = await supabase
+          .from("order_attachments")
+          .insert(attachmentsToInsert);
+
+        if (attachmentsError) {
+          console.error("Error linking files:", attachmentsError);
+          toast.error("Some files could not be linked to the order");
         }
       }
 
@@ -837,33 +922,75 @@ const NewOrder = () => {
                 />
               </div>
 
-              {/* Selected Files List */}
-              {selectedFiles.length > 0 && (
+              {/* Uploaded Files List */}
+              {uploadedFiles.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground">
-                    {selectedFiles.length} file(s) selected
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-foreground">
+                      {uploadedFiles.length} file(s) selected
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {uploadedFiles.filter(f => f.status === 'success').length} uploaded
+                    </p>
+                  </div>
+                  
+                  {/* Overall progress bar */}
+                  {uploadedFiles.some(f => f.status === 'uploading') && (
+                    <Progress 
+                      value={(uploadedFiles.filter(f => f.status === 'success').length / uploadedFiles.length) * 100} 
+                      className="h-2"
+                    />
+                  )}
+                  
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {selectedFiles.map((file, index) => (
+                    {uploadedFiles.map((file) => (
                       <div
-                        key={`${file.name}-${index}`}
-                        className="flex items-center justify-between p-2 bg-muted/50 rounded-md border"
+                        key={file.tempId}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-md border transition-colors",
+                          file.status === 'success' && "bg-green-500/10 border-green-500/30",
+                          file.status === 'error' && "bg-destructive/10 border-destructive/30",
+                          file.status === 'uploading' && "bg-primary/10 border-primary/30"
+                        )}
                       >
                         <div className="flex-1 min-w-0 mr-2">
-                          <p className="text-sm font-medium truncate">{file.name}</p>
+                          <p className="text-sm font-medium truncate">{file.fileName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatFileSize(file.size)}
+                            {formatFileSize(file.fileSize)}
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => removeFile(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        
+                        {/* Status indicator or delete button */}
+                        {file.status === 'uploading' ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        ) : file.status === 'success' ? (
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeFile(file.tempId)}
+                              disabled={isSubmitting}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <XCircle className="h-5 w-5 text-destructive" />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeFile(file.tempId)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

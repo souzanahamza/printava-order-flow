@@ -218,6 +218,50 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          message: string | null
+          target_role: Database["public"]["Enums"]["app_role"] | null
+          target_user_id: string | null
+          title: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string | null
+          target_role?: Database["public"]["Enums"]["app_role"] | null
+          target_user_id?: string | null
+          title: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          message?: string | null
+          target_role?: Database["public"]["Enums"]["app_role"] | null
+          target_user_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_attachments: {
         Row: {
           company_id: string
