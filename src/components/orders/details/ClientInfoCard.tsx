@@ -51,7 +51,7 @@ export function ClientInfoCard({ order }: ClientInfoCardProps) {
                         <Calendar className="h-4 w-4" />
                         Delivery Date
                     </div>
-                    <div className="text-base">{format(new Date(order.delivery_date), "PPP")}</div>
+                    <div className="text-base">{format(new Date(order.delivery_date), "PPP HH:mm")}</div>
                 </div>
                 {order.pricing_tier && (
                     <div className="space-y-1">

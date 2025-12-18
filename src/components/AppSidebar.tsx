@@ -10,7 +10,8 @@ import {
   Settings,
   DollarSign,
   UserCircle,
-  Cog
+  Cog,
+  FileText
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -37,6 +38,8 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ['admin', 'sales', 'designer', 'accountant'] },
   { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'accountant', 'production'] },
   { title: "New Order", url: "/new-order", icon: Plus, roles: ['admin', 'sales'] },
+  { title: "Quotations", url: "/quotations", icon: FileText, roles: ['admin', 'sales'] },
+  // { title: "New Quotation", url: "/quotations/new", icon: Plus, roles: ['admin', 'sales'] },
   { title: "Clients", url: "/clients", icon: UserCircle, roles: ['admin', 'sales', 'accountant'] },
   { title: "Products", url: "/products", icon: Package, roles: ['admin', 'sales', 'accountant', 'production'] },
   { title: "Production", url: "/production", icon: Factory, roles: ['admin', 'production'] },

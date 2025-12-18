@@ -491,7 +491,7 @@ export type Database = {
           company_id: string | null
           created_at: string | null
           currency_id: string | null
-          delivery_date: string
+          delivery_date: string | Date
           delivery_method: string | null
           email: string
           exchange_rate: number
@@ -514,7 +514,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           currency_id?: string | null
-          delivery_date: string
+          delivery_date: string | Date
           delivery_method?: string | null
           email: string
           exchange_rate?: number
@@ -537,7 +537,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string | null
           currency_id?: string | null
-          delivery_date?: string
+          delivery_date?: string | Date
           delivery_method?: string | null
           email?: string
           exchange_rate?: number
@@ -574,6 +574,133 @@ export type Database = {
             columns: ["pricing_tier_id"]
             isOneToOne: false
             referencedRelation: "pricing_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotations: {
+        Row: {
+          id: string
+          client_id: string | null
+          client_name: string
+          email: string
+          phone: string | null
+          valid_until: string | Date | null
+          pricing_tier_id: string | null
+          notes: string | null
+          created_at: string | null
+          company_id: string | null
+          currency_id: string | null
+          exchange_rate: number
+          total_price: number | null
+          total_price_foreign: number | null
+          total_price_company: number | null
+          status: string | null
+        }
+        Insert: {
+          id?: string
+          client_id?: string | null
+          client_name: string
+          email: string
+          phone?: string | null
+          valid_until?: string | Date | null
+          pricing_tier_id?: string | null
+          notes?: string | null
+          created_at?: string | null
+          company_id?: string | null
+          currency_id?: string | null
+          exchange_rate?: number
+          total_price?: number | null
+          total_price_foreign?: number | null
+          total_price_company?: number | null
+          status?: string | null
+        }
+        Update: {
+          id?: string
+          client_id?: string | null
+          client_name?: string
+          email?: string
+          phone?: string | null
+          valid_until?: string | Date | null
+          pricing_tier_id?: string | null
+          notes?: string | null
+          created_at?: string | null
+          company_id?: string | null
+          currency_id?: string | null
+          exchange_rate?: number
+          total_price?: number | null
+          total_price_foreign?: number | null
+          total_price_company?: number | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotations_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_currency_id_fkey"
+            columns: ["currency_id"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotations_pricing_tier_id_fkey"
+            columns: ["pricing_tier_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotation_items: {
+        Row: {
+          id: string
+          quotation_id: string
+          product_id: string
+          quantity: number
+          unit_price: number
+          item_total: number
+          company_id: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          quotation_id: string
+          product_id: string
+          quantity: number
+          unit_price: number
+          item_total: number
+          company_id?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          quotation_id?: string
+          product_id?: string
+          quantity?: number
+          unit_price?: number
+          item_total?: number
+          company_id?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotation_items_quotation_id_fkey"
+            columns: ["quotation_id"]
+            isOneToOne: false
+            referencedRelation: "quotations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotation_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
         ]

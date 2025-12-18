@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -88,6 +88,8 @@ interface UploadedFile {
 
 const NewOrder = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromQuotationId = searchParams.get("fromQuotation");
   const { user } = useAuth();
   const { companyId } = useUserRole();
   const { data: pricingTiers } = usePricingTiers();
@@ -115,6 +117,7 @@ const NewOrder = () => {
   ) || [];
 
   const [deliveryDate, setDeliveryDate] = useState<Date>();
+  const [deliveryTime, setDeliveryTime] = useState<string>("12:00"); // e.g., "14:30"
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -142,6 +145,7 @@ const NewOrder = () => {
     pricing_tier_id: "",
     notes: "",
   });
+  const [hasPrefilledFromQuotation, setHasPrefilledFromQuotation] = useState(false);
 
   // Initialize selected currency to base currency when loaded
   useEffect(() => {
@@ -182,6 +186,109 @@ const NewOrder = () => {
     fetchProducts();
     fetchClients();
   }, []);
+
+  // Prefill from quotation if query param is present
+  useEffect(() => {
+    const prefillFromQuotation = async () => {
+      if (!fromQuotationId || hasPrefilledFromQuotation || !companyId) return;
+
+      try {
+        const { data: quotation, error } = await supabase
+          .from("quotations")
+          .select(
+            `
+            *,
+            quotation_items(
+              id,
+              product_id,
+              quantity,
+              unit_price,
+              item_total,
+              product:products(
+                name_en,
+                name_ar,
+                product_code
+              )
+            )
+          `
+          )
+          .eq("id", fromQuotationId)
+          .single();
+
+        if (error || !quotation) {
+          console.error("Error fetching quotation for prefill:", error);
+          toast.error("Failed to load quotation data");
+          return;
+        }
+
+        // Prefill client details
+        if (quotation.client_id) {
+          const existingClient = clients.find((c) => c.id === quotation.client_id);
+          let clientToUse = existingClient;
+
+          if (!clientToUse) {
+            const { data: clientData } = await supabase
+              .from("clients")
+              .select("*")
+              .eq("id", quotation.client_id)
+              .single();
+            if (clientData) {
+              clientToUse = clientData as Client;
+              setClients((prev) => [...prev, clientData as Client]);
+            }
+          }
+
+          if (clientToUse) {
+            setSelectedClient(clientToUse);
+          }
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          client_id: quotation.client_id || prev.client_id,
+          client_name: quotation.client_name || prev.client_name,
+          email: quotation.email || prev.email,
+          phone: quotation.phone || prev.phone,
+          pricing_tier_id: quotation.pricing_tier_id || prev.pricing_tier_id,
+          notes: `${prev.notes ? prev.notes + "\n" : ""}Converted from Quotation #${quotation.id.slice(
+            0,
+            8
+          )}`,
+        }));
+
+        // Prefill currency
+        if (quotation.currency_id) {
+          setSelectedCurrencyId(quotation.currency_id);
+        }
+        if (quotation.exchange_rate) {
+          setCurrentExchangeRate(quotation.exchange_rate);
+          setIsManualRate(true);
+        }
+
+        // Prefill items
+        if (quotation.quotation_items && quotation.quotation_items.length > 0) {
+          const mappedItems: OrderItem[] = quotation.quotation_items.map((item: any) => ({
+            product_id: item.product_id,
+            product_name: item.product
+              ? `${item.product.name_ar} (${item.product.name_en})`
+              : "",
+            product_code: item.product?.product_code || "",
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            item_total: item.item_total,
+          }));
+          setOrderItems(mappedItems);
+        }
+
+        setHasPrefilledFromQuotation(true);
+      } catch (err) {
+        console.error("Unexpected error pre-filling from quotation:", err);
+        toast.error("Failed to pre-fill order from quotation");
+      }
+    };
+
+    void prefillFromQuotation();
+  }, [fromQuotationId, companyId, hasPrefilledFromQuotation, clients]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -507,7 +614,7 @@ const NewOrder = () => {
           client_name: formData.client_name,
           email: formData.email,
           phone: formData.phone,
-          delivery_date: format(deliveryDate, "yyyy-MM-dd"),
+          delivery_date: deliveryDate.toISOString(),
           delivery_method: formData.delivery_method,
           pricing_tier_id: formData.pricing_tier_id || null,
           notes: formData.notes,
@@ -591,6 +698,28 @@ const NewOrder = () => {
         <h1 className="text-3xl font-bold text-foreground">New Order</h1>
         <p className="text-muted-foreground">Create a new print order</p>
       </div>
+
+      {fromQuotationId && hasPrefilledFromQuotation && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-sm flex items-start justify-between gap-3">
+          <div>
+            <span className="mr-2">📝</span>
+            <span>
+              Creating order from Quotation #{fromQuotationId.slice(0, 8).toUpperCase()}
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              // Dismiss banner only
+              setHasPrefilledFromQuotation(false);
+            }}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Order Details Card */}
@@ -752,9 +881,9 @@ const NewOrder = () => {
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {deliveryDate ? (
-                        format(deliveryDate, "PPP")
+                        format(deliveryDate, "PPP HH:mm")
                       ) : (
-                        <span>Pick a date</span>
+                        <span>Pick a date and time</span>
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -762,11 +891,52 @@ const NewOrder = () => {
                     <Calendar
                       mode="single"
                       selected={deliveryDate}
-                      onSelect={setDeliveryDate}
+                      onSelect={(date) => {
+                        if (date) {
+                          const [hours, minutes] = deliveryTime.split(':').map(Number);
+                          date.setHours(hours, minutes);
+                          setDeliveryDate(date);
+                        }
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                       disabled={(date) => date < new Date()}
                     />
+                    <div className="p-3 border-t border-border flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="23"
+                        value={deliveryTime.split(':')[0]}
+                        onChange={(e) => {
+                          const newHours = parseInt(e.target.value);
+                          setDeliveryTime(`${String(newHours).padStart(2, '0')}:${deliveryTime.split(':')[1]}`);
+                          if (deliveryDate) {
+                            const newDate = new Date(deliveryDate);
+                            newDate.setHours(newHours, parseInt(deliveryTime.split(':')[1]));
+                            setDeliveryDate(newDate);
+                          }
+                        }}
+                        className="w-16"
+                      />
+                      <span>:</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={deliveryTime.split(':')[1]}
+                        onChange={(e) => {
+                          const newMinutes = parseInt(e.target.value);
+                          setDeliveryTime(`${deliveryTime.split(':')[0]}:${String(newMinutes).padStart(2, '0')}`);
+                          if (deliveryDate) {
+                            const newDate = new Date(deliveryDate);
+                            newDate.setHours(parseInt(deliveryTime.split(':')[0]), newMinutes);
+                            setDeliveryDate(newDate);
+                          }
+                        }}
+                        className="w-16"
+                      />
+                    </div>
                   </PopoverContent>
                 </Popover>
               </div>

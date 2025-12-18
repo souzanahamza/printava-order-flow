@@ -3,7 +3,7 @@ export type OrderDetail = {
     client_name: string;
     email: string;
     phone: string | null;
-    delivery_date: string;
+    delivery_date: string | Date;
     delivery_method: string | null;
     status: string;
     total_price: number;

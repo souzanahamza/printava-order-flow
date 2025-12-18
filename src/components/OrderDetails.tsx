@@ -230,7 +230,7 @@ export function OrderDetails({
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1.5">
                           <Calendar className="h-4 w-4" />
-                          {format(new Date(order.created_at), "PPP")}
+                          {format(new Date(order.created_at), "PPP HH:mm")}
                         </span>
                         {canViewFinancials && (
                           <>
@@ -308,6 +308,14 @@ export function OrderDetails({
                   </TabsList>
 
                   <TabsContent value="details" className="space-y-6 mt-6">
+                    {/* Order Notes */}
+                    {order.notes && (
+                      <div className="rounded-lg border bg-card p-4 text-sm whitespace-pre-wrap">
+                        <h3 className="font-semibold mb-1">Order Notes</h3>
+                        <p className="text-muted-foreground">{order.notes}</p>
+                      </div>
+                    )}
+
                     {/* Delivery Action Card */}
                     {showDeliveryWorkflow && (
                       <DeliveryAction

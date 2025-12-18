@@ -12,6 +12,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import NewOrder from "./pages/NewOrder";
+import Quotations from "./pages/Quotations";
+import NewQuotation from "./pages/NewQuotation";
 import Clients from "./pages/Clients";
 import Products from "./pages/Products";
 import DesignApprovals from "./pages/DesignApprovals";
@@ -84,7 +86,41 @@ const App = () => (
             />
 
             <Route
+              path="/quotations"
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales']}>
+                    <Layout><Quotations /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/quotations/new"
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales']}>
+                    <Layout><NewQuotation /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
               path="/new-order"
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales']}>
+                    <Layout><NewOrder /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Alias route for new order, used when converting from quotations */}
+            <Route
+              path="/orders/new"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin', 'sales']}>
