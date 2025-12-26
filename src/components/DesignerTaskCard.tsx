@@ -232,9 +232,9 @@ export function DesignerTaskCard({ order }: DesignerTaskCardProps) {
       <CardContent className="space-y-4">
         {/* Date Info */}
         <div className="flex items-center gap-2 text-sm">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className={isDueToday ? "text-destructive font-semibold" : "text-muted-foreground"}>
-            Due: {format(deliveryDate, "MMM dd")} {isDueToday && "(TODAY)"}
+          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className={`${isDueToday ? "text-destructive font-semibold" : "text-muted-foreground"} break-words`}>
+            Due: {format(deliveryDate, "MMM dd, h:mm a")} {isDueToday && "(TODAY)"}
           </span>
         </div>
 

@@ -149,14 +149,14 @@ const Production = () => {
     const date = new Date(deliveryDate);
 
     if (isToday(date)) {
-      return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />Due Today</Badge>;
+      return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />Due Today {format(date, 'h:mm a')}</Badge>;
     }
 
     if (isTomorrow(date)) {
-      return <Badge variant="default" className="bg-orange-500 hover:bg-orange-600 gap-1"><AlertCircle className="h-3 w-3" />Due Tomorrow</Badge>;
+      return <Badge variant="default" className="bg-orange-500 hover:bg-orange-600 gap-1"><AlertCircle className="h-3 w-3" />Due Tomorrow {format(date, 'h:mm a')}</Badge>;
     }
 
-    return <Badge variant="outline">{format(date, 'MMM d, yyyy')}</Badge>;
+    return <Badge variant="outline">{format(date, 'EEE, MMM d • h:mm a')}</Badge>;
   };
 
   const getStatusBadge = (status: string) => {
@@ -209,8 +209,8 @@ const Production = () => {
                     <CardTitle className="text-lg sm:text-xl font-bold truncate">{order.id}</CardTitle>
                     <Badge variant="outline" className="gap-1 shrink-0">
                       <Calendar className="h-3 w-3" />
-                      <span className="hidden sm:inline">{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
-                      <span className="sm:hidden">{format(new Date(order.created_at), 'MMM d')}</span>
+                      <span className="hidden sm:inline">{format(new Date(order.created_at), 'MMM d, yyyy • h:mm a')}</span>
+                      <span className="sm:hidden">{format(new Date(order.created_at), 'MMM d • h:mm a')}</span>
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -240,8 +240,8 @@ const Production = () => {
                       <span className="font-medium">Delivery</span>
                     </div>
                     <p className="text-sm sm:text-base font-semibold ml-6">
-                      <span className="hidden sm:inline">{format(new Date(order.delivery_date), 'EEEE, MMM d, yyyy')}</span>
-                      <span className="sm:hidden">{format(new Date(order.delivery_date), 'MMM d, yyyy')}</span>
+                      <span className="hidden sm:inline">{format(new Date(order.delivery_date), 'EEEE, MMM d, yyyy • h:mm a')}</span>
+                      <span className="sm:hidden">{format(new Date(order.delivery_date), 'MMM d, yyyy • h:mm a')}</span>
                     </p>
                     {order.delivery_method && (
                       <Badge variant="secondary" className="ml-6 mt-1">

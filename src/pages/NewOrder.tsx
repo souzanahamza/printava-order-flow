@@ -49,6 +49,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { OrderAttachment } from "@/components/orders/types";
+import { Badge } from "@/components/ui/badge";
 
 interface Product {
   id: string;
@@ -90,6 +92,7 @@ const NewOrder = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromQuotationId = searchParams.get("fromQuotation");
+  const fromOrderId = searchParams.get("fromOrder");
   const { user } = useAuth();
   const { companyId } = useUserRole();
   const { data: pricingTiers } = usePricingTiers();
@@ -128,6 +131,7 @@ const NewOrder = () => {
   const [openClientPopover, setOpenClientPopover] = useState(false);
   const [requiresDesign, setRequiresDesign] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [filesToCopy, setFilesToCopy] = useState<OrderAttachment[]>([]);
   const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [newClientForm, setNewClientForm] = useState({
     full_name: "",
@@ -146,6 +150,7 @@ const NewOrder = () => {
     notes: "",
   });
   const [hasPrefilledFromQuotation, setHasPrefilledFromQuotation] = useState(false);
+  const [hasPrefilledFromOrder, setHasPrefilledFromOrder] = useState(false);
 
   // Initialize selected currency to base currency when loaded
   useEffect(() => {
@@ -289,6 +294,124 @@ const NewOrder = () => {
 
     void prefillFromQuotation();
   }, [fromQuotationId, companyId, hasPrefilledFromQuotation, clients]);
+
+  // Prefill from order if query param is present
+  useEffect(() => {
+    const prefillFromOrder = async () => {
+      if (!fromOrderId || hasPrefilledFromOrder || !companyId) return;
+
+      try {
+        const { data: order, error } = await supabase
+          .from("orders")
+          .select(
+            `
+            *,
+            order_items(
+              id,
+              product_id,
+              quantity,
+              unit_price,
+              item_total,
+              product:products(
+                name_en,
+                name_ar,
+                product_code
+              )
+            )
+          `
+          )
+          .eq("id", fromOrderId)
+          .single();
+
+        if (error || !order) {
+          console.error("Error fetching order for prefill:", error);
+          toast.error("Failed to load order data");
+          return;
+        }
+
+        // Prefill client details
+        if (order.client_id) {
+          const existingClient = clients.find((c) => c.id === order.client_id);
+          let clientToUse = existingClient;
+
+          if (!clientToUse) {
+            const { data: clientData } = await supabase
+              .from("clients")
+              .select("*")
+              .eq("id", order.client_id)
+              .single();
+            if (clientData) {
+              clientToUse = clientData as Client;
+              setClients((prev) => [...prev, clientData as Client]);
+            }
+          }
+
+          if (clientToUse) {
+            setSelectedClient(clientToUse);
+          }
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          client_id: order.client_id || prev.client_id,
+          client_name: order.client_name || prev.client_name,
+          email: order.email || prev.email,
+          phone: order.phone || prev.phone,
+          pricing_tier_id: order.pricing_tier_id || prev.pricing_tier_id,
+          delivery_method: order.delivery_method || prev.delivery_method,
+          notes: `Reorder of Order #${order.id.slice(0, 8)}`,
+        }));
+
+        // Prefill currency
+        if (order.currency_id) {
+          setSelectedCurrencyId(order.currency_id);
+        }
+        if (order.exchange_rate) {
+          setCurrentExchangeRate(order.exchange_rate);
+          setIsManualRate(true);
+        }
+
+        // Prefill items
+        if (order.order_items && order.order_items.length > 0) {
+          const mappedItems: OrderItem[] = order.order_items.map((item: any) => ({
+            product_id: item.product_id,
+            product_name: item.product
+              ? `${item.product.name_ar} (${item.product.name_en})`
+              : "",
+            product_code: item.product?.product_code || "",
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            item_total: item.item_total,
+          }));
+          setOrderItems(mappedItems);
+        }
+
+        // Fetch order attachments
+        const { data: attachments, error: attachmentsError } = await supabase
+          .from("order_attachments")
+          .select("*")
+          .eq("order_id", fromOrderId)
+          .order("created_at", { ascending: false });
+
+        if (attachmentsError) {
+          console.error("Error fetching attachments:", attachmentsError);
+        } else if (attachments) {
+          setFilesToCopy(attachments as OrderAttachment[]);
+        }
+
+        // Reset delivery date and files
+        setDeliveryDate(undefined);
+        setUploadedFiles([]);
+
+        setHasPrefilledFromOrder(true);
+      } catch (err) {
+        console.error("Unexpected error pre-filling from order:", err);
+        toast.error("Failed to pre-fill order from previous order");
+      }
+    };
+
+    void prefillFromOrder();
+  }, [fromOrderId, companyId, hasPrefilledFromOrder, clients]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -649,10 +772,13 @@ const NewOrder = () => {
 
       // Link already-uploaded files to the order with smart file names
       const successfulUploads = uploadedFiles.filter(f => f.status === 'success' && f.fileUrl);
+      const attachmentsToInsert = [];
+
+      // Process new files
       if (successfulUploads.length > 0) {
         const fileType: FileType = requiresDesign ? "client_reference" : "print_file";
         
-        const attachmentsToInsert = successfulUploads.map(file => {
+        const newFiles = successfulUploads.map(file => {
           // Generate smart file name using order ID and client name
           const smartFileName = generateSmartFileName(
             order.id,
@@ -672,6 +798,45 @@ const NewOrder = () => {
           };
         });
 
+        attachmentsToInsert.push(...newFiles);
+      }
+
+      // Copy files from previous order
+      if (filesToCopy.length > 0) {
+        const copiedFiles = filesToCopy.map(file => {
+          // Map file_type to valid FileType for generateSmartFileName
+          // Only 'design_mockup', 'print_file', and 'client_reference' are supported
+          let fileTypeForNaming: FileType = 'client_reference';
+          if (file.file_type === 'design_mockup' || file.file_type === 'print_file') {
+            fileTypeForNaming = file.file_type as FileType;
+          } else if (file.file_type === 'archived_mockup') {
+            fileTypeForNaming = 'design_mockup';
+          }
+
+          // Generate new smart filename with NEW order ID
+          const newFileName = generateSmartFileName(
+            order.id,
+            order.client_name,
+            fileTypeForNaming,
+            file.file_name // Use old filename to extract extension
+          );
+
+          return {
+            order_id: order.id,
+            company_id: companyId,
+            file_url: file.file_url, // Keep same URL (same storage file)
+            file_name: newFileName, // Use new smart filename with new order ID
+            file_type: file.file_type, // Keep original file_type
+            file_size: file.file_size,
+            uploader_id: user.id,
+          };
+        });
+
+        attachmentsToInsert.push(...copiedFiles);
+      }
+
+      // Insert all attachments at once
+      if (attachmentsToInsert.length > 0) {
         const { error: attachmentsError } = await supabase
           .from("order_attachments")
           .insert(attachmentsToInsert);
@@ -714,6 +879,28 @@ const NewOrder = () => {
             onClick={() => {
               // Dismiss banner only
               setHasPrefilledFromQuotation(false);
+            }}
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
+
+      {fromOrderId && hasPrefilledFromOrder && (
+        <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-sm flex items-start justify-between gap-3">
+          <div>
+            <span className="mr-2">📝</span>
+            <span>
+              Details loaded from Order #{fromOrderId.slice(0, 8).toUpperCase()}
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              // Dismiss banner only
+              setHasPrefilledFromOrder(false);
             }}
           >
             Dismiss
@@ -1072,6 +1259,49 @@ const NewOrder = () => {
                   ? "Reference Assets (Logos, Images)"
                   : "Ready-to-Print Files"}
               </Label>
+              
+              {/* Files from Previous Order */}
+              {filesToCopy.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">
+                    Files from Previous Order ({filesToCopy.length})
+                  </p>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {filesToCopy.map((file) => (
+                      <div
+                        key={file.id}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-md border transition-colors",
+                          "bg-blue-500/10 border-blue-500/30"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+                          <Badge variant="outline" className="text-xs border-blue-500/50 text-blue-700 dark:text-blue-400">
+                            From Previous Order
+                          </Badge>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{file.file_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {file.file_size ? formatFileSize(file.file_size) : "Unknown size"}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => setFilesToCopy(prev => prev.filter(f => f.id !== file.id))}
+                          disabled={isSubmitting}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div
                 className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
                 onClick={() => document.getElementById("file-input")?.click()}
@@ -1261,6 +1491,7 @@ const NewOrder = () => {
                       <Label>Unit Price</Label>
                       <Input
                         type="text"
+                        step="0.000001"
                         value={formatCurrency(item.unit_price, selectedCurrencyCode)}
                         readOnly
                         className="bg-muted"

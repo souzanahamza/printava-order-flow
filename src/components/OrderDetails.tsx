@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useReactToPrint } from "react-to-print";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Calendar, DollarSign, FileText, Upload, Printer, Loader2, History } from "lucide-react";
+import { Package, Calendar, DollarSign, FileText, Upload, Printer, Loader2, History, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -36,6 +37,7 @@ export function OrderDetails({
   open,
   onOpenChange
 }: OrderDetailsProps) {
+  const navigate = useNavigate();
   const { role, companyId, loading: roleLoading } = useUserRole();
   const { data: statuses } = useOrderStatuses();
   const componentRef = useRef<HTMLDivElement>(null);
@@ -258,24 +260,34 @@ export function OrderDetails({
                     </div>
                     <div className="flex items-center gap-4">
                       {(role === "accountant" || role === "admin" || role === "sales") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePrint()}
-                          disabled={!isInvoiceReady}
-                        >
-                          {isInvoiceReady ? (
-                            <>
-                              <Printer className="h-4 w-4 mr-2" />
-                              Print Invoice
-                            </>
-                          ) : (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Preparing...
-                            </>
-                          )}
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/orders/new?fromOrder=${order.id}`)}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Reorder
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePrint()}
+                            disabled={!isInvoiceReady}
+                          >
+                            {isInvoiceReady ? (
+                              <>
+                                <Printer className="h-4 w-4 mr-2" />
+                                Print Invoice
+                              </>
+                            ) : (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Preparing...
+                              </>
+                            )}
+                          </Button>
+                        </>
                       )}
                       <StatusBadge status={order.status} color={statuses?.find(s => s.name === order.status)?.color} />
                     </div>
