@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge } from "@/components/StatusBadge";
 import { OrderDetails } from "@/components/OrderDetails";
+import { OrderCard } from "@/components/OrderCard";
 import { Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrderStatuses } from "@/hooks/useOrderStatuses";
 import { useUserRole } from "@/hooks/useUserRole";
-import { PriceDisplay } from "@/components/ui/price-display";
 
 type OrderWithDetails = {
   id: string;
@@ -229,103 +228,37 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
       ) : filteredOrders && filteredOrders.length > 0 ? (
         <div className="space-y-4">
           {filteredOrders.map(order => (
-            <Card key={order.id} className="mb-4">
-              <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <div className="font-semibold text-lg">{order.client_name}</div>
-                        <div className="text-sm text-muted-foreground">{order.email}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Order:</span>{" "}
-                        <span className="font-bold text-lg">
-                          {order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : `#${order.id.slice(0, 8)}`}
-                        </span>
-                        {order.order_number != null && (
-                          <span className="text-xs text-muted-foreground ml-2">
-                            (Ref: {order.id.slice(0, 8)})
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Delivery:</span>{" "}
-                        <span className="font-medium">{new Date(order.delivery_date).toLocaleDateString()}</span>
-                      </div>
-                      {order.pricing_tier && (
-                        <div>
-                          <span className="text-muted-foreground">Tier:</span>{" "}
-                          <span className="font-medium">{order.pricing_tier.label || order.pricing_tier.name}</span>
-                        </div>
-                      )}
-                      {roleLoading ? (
-                        <div>
-                          <span className="text-muted-foreground">Total:</span>{" "}
-                          <Skeleton className="inline-block h-5 w-24" />
-                        </div>
-                      ) : canViewFinancials ? (
-                        <div>
-                          <span className="text-muted-foreground">Total:</span>{" "}
-                          <PriceDisplay
-                            amount={order.total_price_foreign || order.total_price}
-                            baseCurrency={currency}
-                            foreignCurrency={order.currencies?.code}
-                            baseAmount={order.total_price_company || order.total_price}
-                            variant="compact"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-3 lg:items-end">
-                    <StatusBadge
-                      status={order.status}
-                      color={statuses?.find(s => s.name === order.status)?.color}
-                    />
-
-                    <div className="flex gap-2">
-
-                      {/* <Select
-                        value={order.status}
-                        onValueChange={newStatus => handleStatusUpdate(order.id, newStatus)}
-                        disabled={isDesigner}
-                      >
-
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue />
-                        </SelectTrigger>
-
-                        <SelectContent>
-                          {statuses?.map(status => (
-                            <SelectItem key={status.id} value={status.name}>
-                              {status.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-
-                      </Select> */}
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedOrderId(order.id)}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Details
-                      </Button>
-
-                    </div>
-                  </div>
-
-
-                </div>
-              </CardContent>
-            </Card>
+            <div key={order.id} className="relative group">
+              <OrderCard
+                id={order.id}
+                order_number={order.order_number}
+                client_name={order.client_name}
+                email={order.email}
+                delivery_date={order.delivery_date}
+                status={order.status}
+                statusColor={statuses?.find(s => s.name === order.status)?.color}
+                total_price={order.total_price}
+                foreignPrice={order.total_price_foreign}
+                basePriceCompany={order.total_price_company}
+                currencyCode={order.currencies?.code}
+                pricing_tier={order.pricing_tier}
+                currency={currency}
+                onClick={() => setSelectedOrderId(order.id)}
+              />
+              <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedOrderId(order.id);
+                  }}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View Details
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
