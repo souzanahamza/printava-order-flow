@@ -269,20 +269,24 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                     </div>
                   </div>
 
-                  {/* <div className="flex flex-col gap-3 lg:items-end">
+                  <div className="flex flex-col gap-3 lg:items-end">
                     <StatusBadge
                       status={order.status}
                       color={statuses?.find(s => s.name === order.status)?.color}
                     />
+
                     <div className="flex gap-2">
-                      <Select
+
+                      {/* <Select
                         value={order.status}
                         onValueChange={newStatus => handleStatusUpdate(order.id, newStatus)}
                         disabled={isDesigner}
                       >
+
                         <SelectTrigger className="w-[180px]">
                           <SelectValue />
                         </SelectTrigger>
+
                         <SelectContent>
                           {statuses?.map(status => (
                             <SelectItem key={status.id} value={status.name}>
@@ -290,7 +294,9 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                             </SelectItem>
                           ))}
                         </SelectContent>
-                      </Select>
+
+                      </Select> */}
+
                       <Button
                         variant="outline"
                         size="sm"
@@ -299,8 +305,9 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                         <Eye className="mr-2 h-4 w-4" />
                         View Details
                       </Button>
+
                     </div>
-                  </div> */}
+                  </div>
 
 
                 </div>
