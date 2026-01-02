@@ -11,6 +11,7 @@ import { format, isToday, isTomorrow } from "date-fns";
 
 type ProductionOrder = {
   id: string;
+  order_number?: number | null;
   client_name: string;
   email: string;
   phone: string | null;
@@ -51,6 +52,7 @@ const Production = () => {
         .from('orders')
         .select(`
           id,
+          order_number,
           client_name,
           email,
           phone,
@@ -206,7 +208,16 @@ const Production = () => {
               <CardHeader className="pb-4 px-4 sm:px-6">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-lg sm:text-xl font-bold truncate">{order.id}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg sm:text-xl font-bold">
+                        {order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : `#${order.id.slice(0, 8)}`}
+                      </CardTitle>
+                      {order.order_number != null && (
+                        <span className="text-xs text-muted-foreground">
+                          (Ref: {order.id.slice(0, 8)})
+                        </span>
+                      )}
+                    </div>
                     <Badge variant="outline" className="gap-1 shrink-0">
                       <Calendar className="h-3 w-3" />
                       <span className="hidden sm:inline">{format(new Date(order.created_at), 'MMM d, yyyy • h:mm a')}</span>

@@ -16,6 +16,7 @@ import { PriceDisplay } from "@/components/ui/price-display";
 
 type OrderWithDetails = {
   id: string;
+  order_number?: number | null;
   client_name: string;
   email: string;
   phone: string | null;
@@ -101,6 +102,7 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
     queryFn: async () => {
       let query = supabase.from("orders").select(`
           *,
+          order_number,
           total_price_foreign,
           currencies:currency_id ( code, symbol ),
           pricing_tier:pricing_tiers(name, label),
@@ -174,7 +176,12 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
 
   const filteredOrders = orders?.filter(order => {
     const matchesStatus = statusFilter === "all" || order.status?.toLowerCase() === statusFilter.toLowerCase();
-    const matchesSearch = !searchQuery || order.id.toLowerCase().includes(searchQuery.toLowerCase()) || order.client_name.toLowerCase().includes(searchQuery.toLowerCase()) || order.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const orderNumberStr = order.order_number != null ? String(order.order_number) : '';
+    const matchesSearch = !searchQuery || 
+      order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      order.client_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      order.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      orderNumberStr.includes(searchQuery);
     return matchesStatus && matchesSearch;
   }) || [];
 
@@ -236,8 +243,15 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
 
                     <div className="flex flex-wrap gap-4 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Order ID:</span>{" "}
-                        <span className="font-medium">{order.id.slice(0, 8)}</span>
+                        <span className="text-muted-foreground">Order:</span>{" "}
+                        <span className="font-bold text-lg">
+                          {order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : `#${order.id.slice(0, 8)}`}
+                        </span>
+                        {order.order_number != null && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            (Ref: {order.id.slice(0, 8)})
+                          </span>
+                        )}
                       </div>
                       <div>
                         <span className="text-muted-foreground">Delivery:</span>{" "}

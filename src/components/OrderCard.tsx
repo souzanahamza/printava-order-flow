@@ -5,6 +5,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 
 interface OrderCardProps {
   id: string;
+  order_number?: number | null;
   client_name: string;
   email: string;
   delivery_date: string;
@@ -25,6 +26,7 @@ interface OrderCardProps {
 
 export function OrderCard({
   id,
+  order_number,
   client_name,
   email,
   delivery_date,
@@ -59,8 +61,15 @@ export function OrderCard({
 
           <div className="flex flex-wrap gap-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Order ID:</span>{" "}
-              <span className="font-medium">{showFullId ? id : id.slice(0, 8)}</span>
+              <span className="text-muted-foreground">Order:</span>{" "}
+              <span className="font-bold text-lg">
+                {order_number != null ? `#${String(order_number).padStart(4, '0')}` : `#${id.slice(0, 8)}`}
+              </span>
+              {order_number != null && (
+                <span className="text-xs text-muted-foreground ml-2">
+                  (Ref: {id.slice(0, 8)})
+                </span>
+              )}
             </div>
             <div>
               <span className="text-muted-foreground">Delivery:</span>{" "}

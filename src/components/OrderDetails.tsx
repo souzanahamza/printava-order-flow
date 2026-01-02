@@ -62,6 +62,7 @@ export function OrderDetails({
         error
       } = await supabase.from("orders").select(`
           *,
+          order_number,
           total_price_foreign,
           exchange_rate,
           currencies:currency_id ( code, symbol ),
@@ -227,7 +228,12 @@ export function OrderDetails({
                     <div className="space-y-2">
                       <DialogTitle className="text-3xl font-bold flex items-center gap-3">
                         <Package className="h-8 w-8 text-primary" />
-                        Order #{order.id.slice(0, 8).toUpperCase()}
+                        Order {order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : `#${order.id.slice(0, 8).toUpperCase()}`}
+                        {order.order_number != null && (
+                          <span className="text-sm font-normal text-muted-foreground ml-2">
+                            (Ref: {order.id.slice(0, 8)})
+                          </span>
+                        )}
                       </DialogTitle>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1.5">

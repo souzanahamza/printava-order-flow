@@ -129,7 +129,9 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
                         <div className="text-xs space-y-3">
                             <div>
                                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium mb-1">Order Number</p>
-                                <p className="font-semibold text-slate-900">{order.id.slice(0, 8).toUpperCase()}</p>
+                                <p className="font-semibold text-slate-900">
+                                    {order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : order.id.slice(0, 8).toUpperCase()}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium mb-1">Issue Date</p>

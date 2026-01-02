@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 interface DesignerTaskCardProps {
   order: {
     id: string;
+    order_number?: number | null;
     client_name: string;
     delivery_date: string;
     status: string;
@@ -212,8 +213,13 @@ export function DesignerTaskCard({ order }: DesignerTaskCardProps) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <Badge variant="outline" className="font-mono text-xs bg-background/50">
-                #{order.id.slice(0, 8)}
+                {order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : `#${order.id.slice(0, 8)}`}
               </Badge>
+              {order.order_number != null && (
+                <span className="text-xs text-muted-foreground">
+                  (Ref: {order.id.slice(0, 8)})
+                </span>
+              )}
               {isQueueStage && (
                 <Badge variant="secondary" className="text-xs">
                   <Clock className="h-3 w-3 mr-1" />

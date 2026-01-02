@@ -16,6 +16,7 @@ import { formatCurrency } from "@/utils/formatCurrency";
 
 type OrderWithDetails = {
   id: string;
+  order_number?: number | null;
   client_name: string;
   email: string;
   delivery_date: string;
@@ -90,6 +91,7 @@ const Dashboard = () => {
         error
       } = await supabase.from("orders").select(`
           *,
+          order_number,
           total_price_foreign,
           currencies:currency_id(code, symbol),
           pricing_tier:pricing_tiers(name, label),
@@ -195,6 +197,7 @@ const Dashboard = () => {
           {recentOrders.map(order => <OrderCard
             key={order.id}
             id={order.id}
+            order_number={order.order_number}
             client_name={order.client_name}
             email={order.email}
             delivery_date={order.delivery_date}

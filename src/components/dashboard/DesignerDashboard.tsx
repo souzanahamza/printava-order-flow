@@ -9,6 +9,7 @@ import { DesignerTaskCard } from "@/components/DesignerTaskCard";
 
 type DesignerOrder = {
     id: string;
+    order_number?: number | null;
     client_name: string;
     delivery_date: string;
     status: string;
@@ -34,6 +35,7 @@ export const DesignerDashboard = () => {
                 .from("orders")
                 .select(`
           id,
+          order_number,
           client_name,
           delivery_date,
           status,

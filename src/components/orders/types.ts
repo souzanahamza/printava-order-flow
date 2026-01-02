@@ -1,5 +1,6 @@
 export type OrderDetail = {
     id: string;
+    order_number?: number | null;
     client_name: string;
     email: string;
     phone: string | null;

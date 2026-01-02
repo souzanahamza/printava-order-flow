@@ -55,7 +55,7 @@ export function AccountantDashboard() {
       const {
         data,
         error
-      } = await supabase.from('orders').select('*, total_price_company, total_price_foreign, exchange_rate, currencies:currency_id(code, symbol), clients(id, full_name)').order('created_at', {
+      } = await supabase.from('orders').select('*, order_number, total_price_company, total_price_foreign, exchange_rate, currencies:currency_id(code, symbol), clients(id, full_name)').order('created_at', {
         ascending: false
       });
       if (error) throw error;
@@ -216,7 +216,12 @@ export function AccountantDashboard() {
               const amountDue = getOrderAmountInCompanyCurrency(order) - (order.paid_amount || 0);
               return <TableRow key={order.id}>
                       <TableCell className="font-medium">
-                        #{order.id.slice(0, 8)}
+                        {order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : `#${order.id.slice(0, 8)}`}
+                        {order.order_number != null && (
+                          <span className="text-xs text-muted-foreground ml-2">
+                            (Ref: {order.id.slice(0, 8)})
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>{order.client_name}</TableCell>
                       

@@ -359,7 +359,7 @@ const NewOrder = () => {
           phone: order.phone || prev.phone,
           pricing_tier_id: order.pricing_tier_id || prev.pricing_tier_id,
           delivery_method: order.delivery_method || prev.delivery_method,
-          notes: `Reorder of Order #${order.id.slice(0, 8)}`,
+          notes: `Reorder of Order ${order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : `#${order.id.slice(0, 8)}`}`,
         }));
 
         // Prefill currency
