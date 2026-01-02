@@ -269,7 +269,7 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-3 lg:items-end">
+                  {/* <div className="flex flex-col gap-3 lg:items-end">
                     <StatusBadge
                       status={order.status}
                       color={statuses?.find(s => s.name === order.status)?.color}
@@ -300,7 +300,9 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                         View Details
                       </Button>
                     </div>
-                  </div>
+                  </div> */}
+
+
                 </div>
               </CardContent>
             </Card>
