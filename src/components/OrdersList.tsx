@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderDetails } from "@/components/OrderDetails";
 import { OrderCard } from "@/components/OrderCard";
-import { Search, Eye } from "lucide-react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrderStatuses } from "@/hooks/useOrderStatuses";
@@ -228,37 +227,23 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
       ) : filteredOrders && filteredOrders.length > 0 ? (
         <div className="space-y-4">
           {filteredOrders.map(order => (
-            <div key={order.id} className="relative group">
-              <OrderCard
-                id={order.id}
-                order_number={order.order_number}
-                client_name={order.client_name}
-                email={order.email}
-                delivery_date={order.delivery_date}
-                status={order.status}
-                statusColor={statuses?.find(s => s.name === order.status)?.color}
-                total_price={order.total_price}
-                foreignPrice={order.total_price_foreign}
-                basePriceCompany={order.total_price_company}
-                currencyCode={order.currencies?.code}
-                pricing_tier={order.pricing_tier}
-                currency={currency}
-                onClick={() => setSelectedOrderId(order.id)}
-              />
-              <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedOrderId(order.id);
-                  }}
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  View Details
-                </Button>
-              </div>
-            </div>
+            <OrderCard
+              key={order.id}
+              id={order.id}
+              order_number={order.order_number}
+              client_name={order.client_name}
+              email={order.email}
+              delivery_date={order.delivery_date}
+              status={order.status}
+              statusColor={statuses?.find(s => s.name === order.status)?.color}
+              total_price={order.total_price}
+              foreignPrice={order.total_price_foreign}
+              basePriceCompany={order.total_price_company}
+              currencyCode={order.currencies?.code}
+              pricing_tier={order.pricing_tier}
+              currency={currency}
+              onClick={() => setSelectedOrderId(order.id)}
+            />
           ))}
         </div>
       ) : (

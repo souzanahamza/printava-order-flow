@@ -47,7 +47,7 @@ export function OrderCard({
   const canViewFinancials = !loading && ['admin', 'sales', 'accountant'].includes(role || '');
   return (
     <div
-      className="p-6 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+      className="p-6 rounded-lg border bg-card text-card-foreground shadow-sm hover:bg-muted/50 transition-colors cursor-pointer"
       onClick={onClick}
     >
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
