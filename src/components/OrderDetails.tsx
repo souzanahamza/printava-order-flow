@@ -264,7 +264,7 @@ export function OrderDetails({
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      {(role === "accountant" || role === "admin" || role === "sales") && (
+                      {(role === "admin" || role === "sales") && (
                         <>
                           <Button
                             variant="outline"
@@ -274,25 +274,27 @@ export function OrderDetails({
                             <RefreshCw className="h-4 w-4 mr-2" />
                             Reorder
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handlePrint()}
-                            disabled={!isInvoiceReady}
-                          >
-                            {isInvoiceReady ? (
-                              <>
-                                <Printer className="h-4 w-4 mr-2" />
-                                Print Invoice
-                              </>
-                            ) : (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Preparing...
-                              </>
-                            )}
-                          </Button>
                         </>
+                      )}
+                      {(role === "accountant" || role === "admin" || role === "sales") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePrint()}
+                          disabled={!isInvoiceReady}
+                        >
+                          {isInvoiceReady ? (
+                            <>
+                              <Printer className="h-4 w-4 mr-2" />
+                              Print Invoice
+                            </>
+                          ) : (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Preparing...
+                            </>
+                          )}
+                        </Button>
                       )}
                       <StatusBadge status={order.status} color={statuses?.find(s => s.name === order.status)?.color} />
                     </div>

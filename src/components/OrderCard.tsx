@@ -2,6 +2,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PriceDisplay } from "@/components/ui/price-display";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
+import { Mail, Calendar, Tag, ChevronRight } from "lucide-react";
 
 interface OrderCardProps {
   id: string;
@@ -45,50 +46,66 @@ export function OrderCard({
 
   // Role-based financial visibility
   const canViewFinancials = !loading && ['admin', 'sales', 'accountant'].includes(role || '');
+  
   return (
     <div
-      className="p-6 rounded-lg border bg-card text-card-foreground shadow-sm hover:bg-muted/50 transition-colors cursor-pointer"
+      className="p-5 rounded-lg border border-muted bg-card text-card-foreground shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4"
+      style={statusColor ? { borderLeftColor: statusColor } : undefined}
       onClick={onClick}
     >
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex-1 space-y-3">
-          <div className="flex items-center gap-4">
-            <div>
-              <div className="font-semibold text-lg">{client_name}</div>
-              <div className="text-sm text-muted-foreground">{email}</div>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 items-center">
+        {/* Section A: Identity & Status (Cols 1-3) */}
+        <div className="md:col-span-3 space-y-2">
+          <div>
+            <div className="text-2xl font-bold tracking-tight">
+              {order_number != null ? `#${String(order_number).padStart(4, '0')}` : `#${id.slice(0, 8)}`}
             </div>
-          </div>
-
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Order:</span>{" "}
-              <span className="font-bold text-lg">
-                {order_number != null ? `#${String(order_number).padStart(4, '0')}` : `#${id.slice(0, 8)}`}
-              </span>
-              {order_number != null && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  (Ref: {id.slice(0, 8)})
-                </span>
-              )}
-            </div>
-            <div>
-              <span className="text-muted-foreground">Delivery:</span>{" "}
-              <span className="font-medium">{new Date(delivery_date).toLocaleDateString()}</span>
-            </div>
-            {pricing_tier && (
-              <div>
-                <span className="text-muted-foreground">Tier:</span>{" "}
-                <span className="font-medium">{pricing_tier.label || pricing_tier.name}</span>
+            {order_number != null && (
+              <div className="text-xs text-muted-foreground mt-1">
+                (Ref: {id.slice(0, 8)})
               </div>
             )}
-            {loading ? (
-              <div>
-                <span className="text-muted-foreground">Total:</span>{" "}
-                <Skeleton className="inline-block h-5 w-24" />
+          </div>
+          <div>
+            <StatusBadge status={status} color={statusColor} />
+          </div>
+        </div>
+
+        {/* Section B: Client & Details (Cols 4-8) */}
+        <div className="md:col-span-5 space-y-3">
+          <div>
+            <div className="font-semibold text-lg text-foreground">{client_name}</div>
+          </div>
+          
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Mail className="w-3 h-3" />
+              <span>{email}</span>
+            </div>
+            
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="w-3 h-3" />
+              <span>{new Date(delivery_date).toLocaleDateString()}</span>
+            </div>
+            
+            {pricing_tier && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Tag className="w-3 h-3" />
+                <span>{pricing_tier.label || pricing_tier.name}</span>
               </div>
-            ) : canViewFinancials ? (
-              <div>
-                <span className="text-muted-foreground">Total:</span>{" "}
+            )}
+          </div>
+        </div>
+
+        {/* Section C: Financials & CTA (Cols 9-12) */}
+        <div className="md:col-span-4 md:text-right space-y-3">
+          {loading ? (
+            <div className="flex md:justify-end items-center gap-2">
+              <Skeleton className="h-6 w-32" />
+            </div>
+          ) : canViewFinancials ? (
+            <div className="space-y-1">
+              <div className="text-xl font-bold text-primary">
                 <PriceDisplay
                   amount={foreignPrice || total_price}
                   baseCurrency={currency}
@@ -97,12 +114,12 @@ export function OrderCard({
                   variant="stacked"
                 />
               </div>
-            ) : null}
+            </div>
+          ) : null}
+          
+          <div className="flex md:justify-end items-center">
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </div>
-        </div>
-
-        <div className="flex flex-col gap-3 lg:items-end">
-          <StatusBadge status={status} color={statusColor} />
         </div>
       </div>
     </div>
