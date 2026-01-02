@@ -15,6 +15,25 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useOrderStatuses } from '@/hooks/useOrderStatuses';
+
+type AccountantOrder = {
+  id: string;
+  order_number?: number | null;
+  client_id?: string | null;
+  client_name: string;
+  status: string;
+  payment_status: string | null;
+  total_price: number;
+  total_price_company?: number | null;
+  paid_amount?: number | null;
+  created_at: string;
+  clients?: {
+    id: string;
+    full_name: string;
+  } | null;
+  [key: string]: any; // Allow other properties
+};
+
 export function AccountantDashboard() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -55,11 +74,11 @@ export function AccountantDashboard() {
       const {
         data,
         error
-      } = await supabase.from('orders').select('*, order_number, total_price_company, total_price_foreign, exchange_rate, currencies:currency_id(code, symbol), clients(id, full_name)').order('created_at', {
+      } = await supabase.from('orders').select('*, total_price_company, total_price_foreign, exchange_rate, currencies:currency_id(code, symbol), clients(id, full_name)').order('created_at', {
         ascending: false
       });
       if (error) throw error;
-      return data;
+      return data as AccountantOrder[];
     }
   });
 

@@ -91,7 +91,6 @@ const Dashboard = () => {
         error
       } = await supabase.from("orders").select(`
           *,
-          order_number,
           total_price_foreign,
           currencies:currency_id(code, symbol),
           pricing_tier:pricing_tiers(name, label),

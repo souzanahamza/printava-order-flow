@@ -102,7 +102,6 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
     queryFn: async () => {
       let query = supabase.from("orders").select(`
           *,
-          order_number,
           total_price_foreign,
           currencies:currency_id ( code, symbol ),
           pricing_tier:pricing_tiers(name, label),
