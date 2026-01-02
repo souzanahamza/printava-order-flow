@@ -85,7 +85,7 @@ export function OrderCard({
             
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="w-3 h-3" />
-              <span>{new Date(delivery_date).toLocaleDateString()}</span>
+              <span>{new Date(delivery_date).toLocaleString()}</span>
             </div>
             
             {pricing_tier && (
