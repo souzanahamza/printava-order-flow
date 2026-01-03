@@ -7,7 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string, companyName: string, logo?: File | null) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string, companyName: string, logo?: File | null, currencyId?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, fullName: string, companyName: string, logo?: File | null) => {
+  const signUp = async (email: string, password: string, fullName: string, companyName: string, logo?: File | null, currencyId?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
     // First, sign up the user
@@ -57,35 +57,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
-          company_name: companyName
+          company_name: companyName,
+          currency_id: currencyId
         }
       }
     });
 
-    // If signup was successful and logo was provided, upload it
-    if (!error && data.user && logo) {
+    // If signup was successful, update company with currency_id and logo
+    if (!error && data.user) {
       try {
-        const fileExt = logo.name.split('.').pop();
-        const fileName = `${data.user.id}/logo.${fileExt}`;
+        const updateData: { currency_id?: string; logo_url?: string } = {};
         
-        const { error: uploadError, data: uploadData } = await supabase.storage
-          .from('company-logos')
-          .upload(fileName, logo, { upsert: true });
+        // Update company with currency_id if provided
+        if (currencyId) {
+          updateData.currency_id = currencyId;
+        }
 
-        if (!uploadError && uploadData) {
-          const { data: { publicUrl } } = supabase.storage
+        // Upload logo if provided
+        if (logo) {
+          const fileExt = logo.name.split('.').pop();
+          const fileName = `${data.user.id}/logo.${fileExt}`;
+          
+          const { error: uploadError, data: uploadData } = await supabase.storage
             .from('company-logos')
-            .getPublicUrl(fileName);
+            .upload(fileName, logo, { upsert: true });
 
-          // Update the company with logo URL
+          if (!uploadError && uploadData) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('company-logos')
+              .getPublicUrl(fileName);
+            
+            updateData.logo_url = publicUrl;
+          }
+        }
+
+        // Update the company with currency_id and/or logo_url
+        if (Object.keys(updateData).length > 0) {
           await supabase
             .from('companies')
-            .update({ logo_url: publicUrl })
+            .update(updateData)
             .eq('id', data.user.id);
         }
-      } catch (logoError) {
-        console.error('Error uploading logo:', logoError);
-        // Don't fail the signup if logo upload fails
+      } catch (updateError) {
+        console.error('Error updating company:', updateError);
+        // Don't fail the signup if update fails
       }
     }
     
