@@ -92,7 +92,7 @@ export function OrderDetails({
       if (!companyId) return null;
       const { data, error } = await supabase
         .from("companies")
-        .select("*, base_currency:currencies(code)")
+        .select("*, base_currency:currencies(code, symbol)")
         .eq("id", companyId)
         .single();
       if (error) throw error;
@@ -248,15 +248,25 @@ export function OrderDetails({
                                 baseCurrency={companyProfile?.base_currency?.code}
                                 foreignCurrency={order.currencies?.code}
                                 baseAmount={order.total_price_company || order.total_price || 0}
+                                baseSymbol={companyProfile?.base_currency?.symbol}
+                                foreignSymbol={order.currencies?.symbol}
                                 variant="inline"
                               />
                             </span>
                             <span className="flex items-center gap-1.5 font-medium text-foreground">
-                              Paid: {formatCurrency(paidAmountDisplay, displayCurrency)}
+                              Paid: {formatCurrency(
+                                paidAmountDisplay, 
+                                displayCurrency,
+                                isForeignCurrency ? order.currencies?.symbol : companyProfile?.base_currency?.symbol
+                              )}
                             </span>
                             {dueAmountDisplay > 0.01 && (
                               <span className="flex items-center gap-1.5 font-semibold text-destructive">
-                                Due: {formatCurrency(dueAmountDisplay, displayCurrency)}
+                                Due: {formatCurrency(
+                                  dueAmountDisplay, 
+                                  displayCurrency,
+                                  isForeignCurrency ? order.currencies?.symbol : companyProfile?.base_currency?.symbol
+                                )}
                               </span>
                             )}
                           </>

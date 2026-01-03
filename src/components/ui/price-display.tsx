@@ -10,6 +10,10 @@ interface PriceDisplayProps {
   foreignCurrency?: string;
   /** Amount in base currency (for conversion display) */
   baseAmount?: number;
+  /** Base currency symbol from Supabase */
+  baseSymbol?: string | null;
+  /** Foreign currency symbol from Supabase */
+  foreignSymbol?: string | null;
   /** Layout variant */
   variant?: "inline" | "stacked" | "compact";
   /** Show approximate symbol for conversion */
@@ -31,6 +35,8 @@ export function PriceDisplay({
   baseCurrency,
   foreignCurrency,
   baseAmount,
+  baseSymbol,
+  foreignSymbol,
   variant = "inline",
   showApprox = true,
   primaryClassName,
@@ -44,7 +50,7 @@ export function PriceDisplay({
   if (!showConversion) {
     return (
       <span className={cn("font-semibold text-primary", primaryClassName, className)}>
-        {formatCurrency(amount, baseCurrency)}
+        {formatCurrency(amount, baseCurrency, baseSymbol)}
       </span>
     );
   }
@@ -54,10 +60,10 @@ export function PriceDisplay({
     return (
       <span className={cn("inline-flex flex-col align-top leading-none", className)}>
         <span className={cn("font-semibold text-primary", primaryClassName)}>
-          {formatCurrency(amount, foreignCurrency)}
+          {formatCurrency(amount, foreignCurrency, foreignSymbol)}
         </span>
         <span className={cn("text-[10px] text-muted-foreground font-normal", secondaryClassName)}>
-          {showApprox ? "≈ " : ""}{formatCurrency(baseAmount, baseCurrency)}
+          {showApprox ? "≈ " : ""}{formatCurrency(baseAmount, baseCurrency, baseSymbol)}
         </span>
       </span>
     );
@@ -67,10 +73,10 @@ export function PriceDisplay({
     return (
       <span className={cn("inline-flex items-baseline gap-1", className)}>
         <span className={cn("font-semibold text-primary", primaryClassName)}>
-          {formatCurrency(amount, foreignCurrency)}
+          {formatCurrency(amount, foreignCurrency, foreignSymbol)}
         </span>
         <span className={cn("text-xs text-muted-foreground", secondaryClassName)}>
-          ({showApprox ? "≈" : ""}{formatCurrency(baseAmount, baseCurrency)})
+          ({showApprox ? "≈" : ""}{formatCurrency(baseAmount, baseCurrency, baseSymbol)})
         </span>
       </span>
     );
@@ -80,10 +86,10 @@ export function PriceDisplay({
   return (
     <span className={cn("inline-flex items-center gap-1", className)}>
       <span className={cn(primaryClassName)}>
-        {formatCurrency(amount, foreignCurrency)}
+        {formatCurrency(amount, foreignCurrency, foreignSymbol)}
       </span>
       <span className={cn("text-xs text-muted-foreground ml-1", secondaryClassName)}>
-        ({showApprox ? "≈" : ""}{formatCurrency(baseAmount, baseCurrency)})
+        ({showApprox ? "≈" : ""}{formatCurrency(baseAmount, baseCurrency, baseSymbol)})
       </span>
     </span>
   );

@@ -23,6 +23,8 @@ interface OrderCardProps {
   foreignPrice?: number | null;
   basePriceCompany?: number | null; // Price converted to base currency
   currencyCode?: string; // Transaction currency code
+  baseCurrencySymbol?: string | null; // Base currency symbol from Supabase
+  foreignCurrencySymbol?: string | null; // Foreign currency symbol from Supabase
 }
 
 export function OrderCard({
@@ -40,7 +42,9 @@ export function OrderCard({
   currency,
   foreignPrice,
   basePriceCompany,
-  currencyCode
+  currencyCode,
+  baseCurrencySymbol,
+  foreignCurrencySymbol
 }: OrderCardProps) {
   const { role, loading } = useUserRole();
 
@@ -111,6 +115,8 @@ export function OrderCard({
                   baseCurrency={currency}
                   foreignCurrency={currencyCode}
                   baseAmount={basePriceCompany || total_price}
+                  baseSymbol={baseCurrencySymbol}
+                  foreignSymbol={foreignCurrencySymbol}
                   variant="stacked"
                 />
               </div>

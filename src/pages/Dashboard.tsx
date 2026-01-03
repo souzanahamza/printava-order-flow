@@ -55,7 +55,7 @@ const Dashboard = () => {
       if (!companyId) return null;
       const { data, error } = await supabase
         .from("companies")
-        .select("currency_id, base_currency:currencies(code)")
+        .select("currency_id, base_currency:currencies(code, symbol)")
         .eq("id", companyId)
         .single();
       if (error) throw error;
@@ -130,11 +130,11 @@ const Dashboard = () => {
       change: "Currently printing"
     }, {
       title: "Revenue",
-      value: formatCurrency(totalRevenue, currency),
+      value: formatCurrency(totalRevenue, currency, companyProfile?.base_currency?.symbol),
       icon: TrendingUp,
       change: `From ${totalOrders} orders`
     }];
-  }, [allOrders, currency]);
+  }, [allOrders, currency, companyProfile?.base_currency?.symbol]);
 
   if (roleLoading) {
     return (
@@ -208,6 +208,8 @@ const Dashboard = () => {
             currencyCode={order.currencies?.code}
             pricing_tier={order.pricing_tier}
             currency={currency}
+            baseCurrencySymbol={companyProfile?.base_currency?.symbol}
+            foreignCurrencySymbol={order.currencies?.symbol}
             onClick={() => {
               setSelectedOrderId(order.id);
               setIsDetailsOpen(true);

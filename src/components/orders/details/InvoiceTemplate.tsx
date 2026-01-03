@@ -18,6 +18,7 @@ export interface CompanyProfile {
     currency?: string | null;      // Legacy currency code (AED, USD, etc.) - deprecated
     base_currency?: {              // New relation to currencies table
         code: string;
+        symbol: string | null;
     };
 }
 

@@ -56,7 +56,7 @@ export function AccountantDashboard() {
       const {
         data,
         error
-      } = await supabase.from("companies").select("currency_id, base_currency:currencies(code)").eq("id", companyId).single();
+      } = await supabase.from("companies").select("currency_id, base_currency:currencies(code, symbol)").eq("id", companyId).single();
       if (error) throw error;
       return data;
     },
@@ -166,7 +166,7 @@ export function AccountantDashboard() {
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-8 w-24" /> : <>
-                <div className="text-2xl font-bold">{formatCurrency(pendingReceivables, currency)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(pendingReceivables, currency, companyProfile?.base_currency?.symbol)}</div>
                 <p className="text-xs text-muted-foreground">
                   Amount outstanding
                 </p>
@@ -181,7 +181,7 @@ export function AccountantDashboard() {
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-8 w-24" /> : <>
-                <div className="text-2xl font-bold">{formatCurrency(todaysCollections, currency)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(todaysCollections, currency, companyProfile?.base_currency?.symbol)}</div>
                 <p className="text-xs text-muted-foreground">
                   Collected today
                 </p>
