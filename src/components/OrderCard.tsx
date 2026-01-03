@@ -105,7 +105,7 @@ export function OrderCard({
             </div>
           ) : canViewFinancials ? (
             <div className="space-y-1">
-              <div className="text-xl font-bold text-primary">
+              <div className="text-l font-bold text-primary">
                 <PriceDisplay
                   amount={foreignPrice || total_price}
                   baseCurrency={currency}
