@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">print-flow</string>
+    <string name="title_activity_main">print-flow</string>
+    <string name="package_name">com.printava.app</string>
+    <string name="custom_url_scheme">com.printava.app</string>
+</resources>
