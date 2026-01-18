@@ -3,13 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Package, Upload } from "lucide-react";
+import { Plus, Package, Upload, Edit } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductFormDialog } from "@/components/ProductFormDialog";
 import { BulkImportDialog } from "@/components/BulkImportDialog";
 import { useUserRole } from "@/hooks/useUserRole";
 import type { Tables } from "@/integrations/supabase/types";
 import { formatCurrency } from "@/utils/formatCurrency";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type Product = Tables<"products">;
 
@@ -47,7 +55,7 @@ const Products = () => {
         .order("name_en");
 
       if (error) throw error;
-      return data as Product[];
+      return (data || []) as (Product & { group_code?: string | null; unit_type?: string | null })[];
     },
   });
 
@@ -61,10 +69,6 @@ const Products = () => {
     setIsDialogOpen(true);
   };
 
-  const truncateText = (text: string | null, maxLength: number) => {
-    if (!text) return "";
-    return text.length > maxLength ? text.slice(0, maxLength) + "..." : text;
-  };
 
   return (
     <div className="space-y-6">
@@ -84,18 +88,15 @@ const Products = () => {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <Skeleton className="h-48 w-full mb-4" />
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/2 mb-4" />
-                <Skeleton className="h-4 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       ) : !products || products.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -111,65 +112,86 @@ const Products = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <Card
-              key={product.id}
-              className={canEditProducts ? "hover:shadow-lg transition-shadow cursor-pointer" : ""}
-              onClick={canEditProducts ? () => handleEditProduct(product) : undefined}
-            >
-              <CardContent className="p-6">
-                {product.image_url ? (
-                  <img
-                    src={product.image_url}
-                    alt={product.name_en}
-                    className="w-full h-48 object-cover rounded-md mb-4"
-                  />
-                ) : (
-                  <div className="w-full h-48 bg-muted rounded-md mb-4 flex items-center justify-center">
-                    <Package className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <div>
-                    <h3 className="font-semibold text-lg text-foreground">
-                      {product.name_en}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {product.name_ar}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">SKU:</span>
-                    <span className="font-medium text-foreground">{product.sku}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Category:</span>
-                    <span className="font-medium text-foreground">{product.category}</span>
-                  </div>
-
-                  {canEditProducts && (
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Price:</span>
-                      <span className="font-semibold text-primary">
-                        {formatCurrency(Number(product.unit_price), currency)}
-                      </span>
-                    </div>
-                  )}
-
-                  {product.description && (
-                    <p className="text-sm text-muted-foreground mt-3">
-                      {truncateText(product.description, 100)}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[60px]">Image</TableHead>
+                    <TableHead className="text-right">Group Code</TableHead>
+                    <TableHead className="text-right">Group Name</TableHead>
+                    <TableHead className="text-right">Item Code</TableHead>
+                    <TableHead className="text-right">Item Name</TableHead>
+                    <TableHead className="text-right">Unit</TableHead>
+                    <TableHead className="text-right font-bold text-base">Price</TableHead>
+                    {canEditProducts && <TableHead className="w-[80px] text-center">Actions</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {products.map((product) => {
+                    return (
+                      <TableRow
+                        key={product.id}
+                        className={canEditProducts ? "cursor-pointer hover:bg-muted/50" : ""}
+                        onClick={canEditProducts ? () => handleEditProduct(product) : undefined}
+                      >
+                        <TableCell className="w-[60px]">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name_en || product.name_ar}
+                              className="h-12 w-12 object-cover rounded border"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 bg-muted rounded border flex items-center justify-center">
+                              <Package className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {(product as any).group_code || "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {product.category}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {product.product_code || "-"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-col items-end">
+                            <span className="font-medium">{product.name_ar}</span>
+                            {product.name_en && (
+                              <span className="text-xs text-muted-foreground">{product.name_en}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {((product as any).unit_type || "pcs").toUpperCase()}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-base text-foreground">
+                          {formatCurrency(Number(product.unit_price || 0), currency)}
+                        </TableCell>
+                        {canEditProducts && (
+                          <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditProduct(product)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Floating Action Button - Only for authorized users */}

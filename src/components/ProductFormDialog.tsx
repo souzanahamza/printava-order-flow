@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-// FIX: Use useUserRole instead of useAuth to get the correct company_id
 import { useUserRole } from "@/hooks/useUserRole"; 
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { X, Upload as UploadIcon } from "lucide-react";
 
 type Product = Tables<"products">;
 
@@ -30,9 +30,11 @@ export const ProductFormDialog = ({
   onOpenChange,
 }: ProductFormDialogProps) => {
   const queryClient = useQueryClient();
-  // FIX: Get companyId from the hook
   const { companyId } = useUserRole(); 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   
   const [formData, setFormData] = useState({
     sku: "",
@@ -41,6 +43,8 @@ export const ProductFormDialog = ({
     name_en: "",
     category: "",
     unit_price: "",
+    unit_type: "pcs",
+    group_code: "",
     image_url: "",
     description: "",
     stock_quantity: "",
@@ -55,10 +59,14 @@ export const ProductFormDialog = ({
         name_en: product.name_en || "",
         category: product.category || "",
         unit_price: String(product.unit_price || ""),
+        unit_type: (product.unit_type as string) || "pcs",
+        group_code: (product.group_code as string) || "",
         image_url: product.image_url || "",
         description: product.description || "",
         stock_quantity: String(product.stock_quantity || ""),
       });
+      setImagePreview(product.image_url || null);
+      setImageFile(null);
     } else {
       setFormData({
         sku: "",
@@ -67,20 +75,56 @@ export const ProductFormDialog = ({
         name_en: "",
         category: "",
         unit_price: "",
+        unit_type: "pcs",
+        group_code: "",
         image_url: "",
         description: "",
         stock_quantity: "",
       });
+      setImagePreview(null);
+      setImageFile(null);
     }
   }, [product, open]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size must be less than 5MB");
+      return;
+    }
+
+    setImageFile(file);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData((prev) => ({ ...prev, image_url: "" }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,16 +136,70 @@ export const ProductFormDialog = ({
     }
 
     setIsSubmitting(true);
+    let finalImageUrl = formData.image_url || null;
 
     try {
+      // Upload image if a new file was selected
+      if (imageFile) {
+        setIsUploadingImage(true);
+        
+        // Generate unique filename: product_{sku}_{timestamp}.ext
+        const fileExt = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const sanitizedSku = formData.sku.replace(/[^a-zA-Z0-9]/g, '_');
+        const timestamp = Date.now();
+        const fileName = `product_${sanitizedSku}_${timestamp}.${fileExt}`;
+        const filePath = `${companyId}/${fileName}`;
+
+        // Upload to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, imageFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          // If file already exists, try with a different name
+          if (uploadError.message.includes('already exists')) {
+            const uniqueFileName = `product_${sanitizedSku}_${timestamp}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const uniqueFilePath = `${companyId}/${uniqueFileName}`;
+            
+            const { error: retryError } = await supabase.storage
+              .from('product-images')
+              .upload(uniqueFilePath, imageFile);
+            
+            if (retryError) throw retryError;
+            
+            const { data: { publicUrl } } = supabase.storage
+              .from('product-images')
+              .getPublicUrl(uniqueFilePath);
+            
+            finalImageUrl = publicUrl;
+          } else {
+            throw uploadError;
+          }
+        } else {
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(filePath);
+          
+          finalImageUrl = publicUrl;
+        }
+
+        setIsUploadingImage(false);
+      }
+
       const productData = {
         sku: formData.sku,
-        product_code: formData.product_code || null,
+        product_code: formData.product_code,
         name_ar: formData.name_ar,
         name_en: formData.name_en,
         category: formData.category,
         unit_price: parseFloat(formData.unit_price),
-        image_url: formData.image_url || null,
+        unit_type: formData.unit_type || "pcs",
+        group_code: formData.group_code || null,
+        image_url: finalImageUrl,
         description: formData.description || null,
         stock_quantity: formData.stock_quantity
           ? parseFloat(formData.stock_quantity)
@@ -119,7 +217,6 @@ export const ProductFormDialog = ({
         toast.success("Product updated successfully");
       } else {
         // Create new product
-        // FIX: Use companyId instead of user.id
         const { error } = await supabase.from("products").insert({
           ...productData,
           company_id: companyId, 
@@ -131,11 +228,12 @@ export const ProductFormDialog = ({
 
       queryClient.invalidateQueries({ queryKey: ["products"] });
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving product:", error);
-      toast.error("Failed to save product");
+      toast.error(`Failed to save product: ${error.message || "Unknown error"}`);
     } finally {
       setIsSubmitting(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -162,12 +260,13 @@ export const ProductFormDialog = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="product_code">Product Code</Label>
+              <Label htmlFor="product_code">Product Code *</Label>
               <Input
                 id="product_code"
                 name="product_code"
                 value={formData.product_code}
                 onChange={handleChange}
+                required
               />
             </div>
 
@@ -194,14 +293,46 @@ export const ProductFormDialog = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category">Category *</Label>
+              <Label htmlFor="group_code">Group Code</Label>
+              <Input
+                id="group_code"
+                name="group_code"
+                value={formData.group_code}
+                onChange={handleChange}
+                placeholder="G001"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Group Name *</Label>
               <Input
                 id="category"
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
+                placeholder="اسم المجموعة"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="unit_type">Unit Type *</Label>
+              <select
+                id="unit_type"
+                name="unit_type"
+                value={formData.unit_type}
+                onChange={handleChange}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                required
+              >
+                <option value="pcs">Pieces (pcs)</option>
+                <option value="kg">Kilogram (kg)</option>
+                <option value="m">Meter (m)</option>
+                <option value="box">Box</option>
+                <option value="roll">Roll</option>
+                <option value="set">Set</option>
+                <option value="pack">Pack</option>
+              </select>
             </div>
 
             <div className="space-y-2">
@@ -231,16 +362,45 @@ export const ProductFormDialog = ({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="image_url">Image URL</Label>
-              <Input
-                id="image_url"
-                name="image_url"
-                type="url"
-                value={formData.image_url}
-                onChange={handleChange}
-                placeholder="https://..."
-              />
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="image">Product Image</Label>
+              <div className="space-y-2">
+                {imagePreview && (
+                  <div className="relative inline-block">
+                    <img
+                      src={imagePreview}
+                      alt="Product preview"
+                      className="h-32 w-32 object-cover rounded-md border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+                      onClick={handleRemoveImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="image"
+                    name="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    disabled={isUploadingImage || isSubmitting}
+                    className="cursor-pointer"
+                  />
+                  {isUploadingImage && (
+                    <span className="text-sm text-muted-foreground">Uploading...</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Upload an image file (max 5MB). Supported formats: JPG, PNG, GIF, WebP
+                </p>
+              </div>
             </div>
           </div>
 
@@ -264,8 +424,8 @@ export const ProductFormDialog = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
+            <Button type="submit" disabled={isSubmitting || isUploadingImage}>
+              {isSubmitting || isUploadingImage
                 ? product
                   ? "Updating..."
                   : "Creating..."
