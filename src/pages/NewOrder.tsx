@@ -735,8 +735,8 @@ const NewOrder = () => {
         .insert({
           client_id: formData.client_id || null,
           client_name: formData.client_name,
-          email: formData.email,
-          phone: formData.phone,
+          email: formData.email || null,
+          phone: formData.phone || null,
           delivery_date: deliveryDate.toISOString(),
           delivery_method: formData.delivery_method,
           pricing_tier_id: formData.pricing_tier_id || null,
@@ -993,7 +993,7 @@ const NewOrder = () => {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="new_client_email">Email</Label>
+                        <Label htmlFor="new_client_email">Email (Optional)</Label>
                         <Input
                           id="new_client_email"
                           type="email"
@@ -1029,7 +1029,7 @@ const NewOrder = () => {
             {/* Email and Phone (auto-filled from client) */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   name="email"
@@ -1037,7 +1037,6 @@ const NewOrder = () => {
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="client@example.com"
-                  required
                 />
               </div>
               <div className="space-y-2">

@@ -21,13 +21,15 @@ export function ClientInfoCard({ order }: ClientInfoCardProps) {
                     <div className="text-sm font-medium text-muted-foreground">Name</div>
                     <div className="text-base font-semibold">{order.client_name}</div>
                 </div>
-                <div className="space-y-1">
-                    <div className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-                        <Mail className="h-4 w-4" />
-                        Email
+                {order.email && (
+                    <div className="space-y-1">
+                        <div className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                            <Mail className="h-4 w-4" />
+                            Email
+                        </div>
+                        <div className="text-base">{order.email}</div>
                     </div>
-                    <div className="text-base">{order.email}</div>
-                </div>
+                )}
                 {order.phone && (
                     <div className="space-y-1">
                         <div className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
