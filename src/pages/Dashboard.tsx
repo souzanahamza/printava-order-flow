@@ -18,7 +18,7 @@ type OrderWithDetails = {
   id: string;
   order_number?: number | null;
   client_name: string;
-  email: string;
+  phone: string | null;
   delivery_date: string;
   status: string;
   total_price: number;
@@ -202,7 +202,7 @@ const activeOrders = allOrders.filter(o =>
             id={order.id}
             order_number={order.order_number}
             client_name={order.client_name}
-            email={order.email}
+            phone={order.phone || ""}
             delivery_date={order.delivery_date}
             status={order.status}
             statusColor={statuses?.find(s => s.name === order.status)?.color}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -29,12 +30,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Pencil, Search, History } from "lucide-react";
+import { Plus, Pencil, Search, History, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { usePricingTiers } from "@/hooks/usePricingTiers";
 import { OrdersList } from "@/components/OrdersList";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Client {
   id: string;
@@ -53,8 +55,7 @@ interface Client {
 const Clients = () => {
   const { companyId, role } = useUserRole();
   const { data: pricingTiers } = usePricingTiers();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -72,30 +73,81 @@ const Clients = () => {
     default_pricing_tier_id: "",
   });
 
-  // Check if user has access
-  const hasAccess = role && ['admin', 'sales', 'accountant'].includes(role);
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
+  // Debounce search term for performance (500ms delay)
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  // Reset page to 1 when search term changes
   useEffect(() => {
-    if (hasAccess) {
-      fetchClients();
-    }
-  }, [companyId, hasAccess]);
+    setPage(1);
+  }, [debouncedSearchTerm]);
 
-  const fetchClients = async () => {
-    try {
-      const { data, error } = await supabase
+  // Check if user has access
+  const hasAccess = !!role && ['admin', 'sales', 'accountant'].includes(role);
+
+  // Calculate pagination range
+  const from = (page - 1) * itemsPerPage;
+  const to = from + itemsPerPage - 1;
+
+  // Fetch clients with server-side pagination
+  const {
+    data: clientsData,
+    isLoading: loading,
+    isFetching
+  } = useQuery({
+    queryKey: ["clients", debouncedSearchTerm, page, itemsPerPage],
+    queryFn: async () => {
+      const rangeFrom = (page - 1) * itemsPerPage;
+      const rangeTo = rangeFrom + itemsPerPage - 1;
+      
+      let query = supabase
         .from("clients")
-        .select("*")
+        .select("*", { count: "exact" })
         .order("full_name");
 
+      // Apply search filter if search term exists
+      if (debouncedSearchTerm.trim()) {
+        const term = debouncedSearchTerm.trim();
+        query = query.or(
+          `full_name.ilike.%${term}%,business_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%,city.ilike.%${term}%`
+        );
+      }
+
+      // Apply pagination range
+      query = query.range(rangeFrom, rangeTo);
+
+      const { data, error, count } = await query;
+
       if (error) throw error;
-      setClients(data || []);
-    } catch (error) {
-      console.error("Error fetching clients:", error);
-      toast.error("Failed to load clients");
-    } finally {
-      setLoading(false);
+      return {
+        clients: (data || []) as Client[],
+        totalCount: count || 0,
+      };
+    },
+    placeholderData: keepPreviousData,
+    enabled: hasAccess,
+  });
+
+  const clients = clientsData?.clients || [];
+  const totalCount = clientsData?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
     }
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setPage(1); // Reset to first page when changing items per page
+  };
+
+  const refreshClients = () => {
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
   };
 
   const handleChange = (
@@ -149,7 +201,7 @@ const Clients = () => {
 
       setIsDialogOpen(false);
       resetForm();
-      fetchClients();
+      refreshClients();
     } catch (error) {
       console.error("Error saving client:", error);
       toast.error("Failed to save client");
@@ -188,17 +240,6 @@ const Clients = () => {
     });
     setIsDialogOpen(true);
   };
-
-  const filteredClients = clients.filter((client) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      client.full_name.toLowerCase().includes(term) ||
-      client.business_name?.toLowerCase().includes(term) ||
-      client.email?.toLowerCase().includes(term) ||
-      client.phone?.toLowerCase().includes(term) ||
-      client.city?.toLowerCase().includes(term)
-    );
-  });
 
   // Show loading while checking access
   if (role === undefined || role === null) {
@@ -387,8 +428,17 @@ const Clients = () => {
                 placeholder="Search clients..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 pr-10"
               />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -465,15 +515,34 @@ const Clients = () => {
                 </Table>
               </div>
             </>
-          ) : filteredClients.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">
-              {searchTerm ? "No clients found matching your search" : "No clients yet. Add your first client!"}
-            </p>
+          ) : clients.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">
+                {debouncedSearchTerm ? "No clients found matching your search" : "No clients yet. Add your first client!"}
+              </p>
+              {debouncedSearchTerm && (
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => setSearchTerm("")}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear Search
+                </Button>
+              )}
+            </div>
           ) : (
             <>
+              {/* Loading indicator for fetching */}
+              {isFetching && !loading && (
+                <div className="text-center py-2 text-sm text-muted-foreground">
+                  Loading...
+                </div>
+              )}
+              
               {/* Mobile Card View */}
               <div className="md:hidden space-y-4">
-                {filteredClients.map((client) => (
+                {clients.map((client) => (
                   <Card key={client.id} className="border-2">
                     <CardContent className="pt-6">
                       <div className="space-y-3">
@@ -544,7 +613,7 @@ const Clients = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredClients.map((client) => (
+                    {clients.map((client) => (
                       <TableRow key={client.id}>
                         <TableCell className="font-medium">{client.full_name}</TableCell>
                         <TableCell>{client.business_name || "-"}</TableCell>
@@ -577,6 +646,61 @@ const Clients = () => {
             </>
           )}
         </CardContent>
+        
+        {/* Pagination Controls - only show when there are clients */}
+        {clients.length > 0 && (
+          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-6 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Showing {from + 1}-{Math.min(to + 1, totalCount)} of {totalCount} clients</span>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {/* Rows per page selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Rows per page:</span>
+                <Select value={String(itemsPerPage)} onValueChange={handleItemsPerPageChange}>
+                  <SelectTrigger className="w-[70px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Page navigation */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page === 1}
+                  className="h-8 px-3"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                
+                <span className="text-sm font-medium px-2">
+                  Page {page} of {totalPages || 1}
+                </span>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= totalPages}
+                  className="h-8 px-3"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </CardFooter>
+        )}
       </Card>
 
       {/* Client Order History Dialog */}

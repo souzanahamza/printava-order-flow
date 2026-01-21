@@ -282,7 +282,7 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                 id={order.id}
                 order_number={order.order_number}
                 client_name={order.client_name}
-                email={order.email}
+                phone={order.phone || ""}
                 delivery_date={order.delivery_date}
                 status={order.status}
                 statusColor={statuses?.find(s => s.name === order.status)?.color}

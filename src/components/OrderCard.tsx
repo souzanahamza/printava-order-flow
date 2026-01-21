@@ -2,13 +2,13 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { PriceDisplay } from "@/components/ui/price-display";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUserRole } from "@/hooks/useUserRole";
-import { Mail, Calendar, Tag, ChevronRight } from "lucide-react";
+import { Phone, Calendar, Tag, ChevronRight } from "lucide-react";
 
 interface OrderCardProps {
   id: string;
   order_number?: number | null;
   client_name: string;
-  email: string;
+  phone: string;
   delivery_date: string;
   status: string;
   statusColor?: string;
@@ -31,7 +31,7 @@ export function OrderCard({
   id,
   order_number,
   client_name,
-  email,
+  phone,
   delivery_date,
   status,
   statusColor,
@@ -83,8 +83,8 @@ export function OrderCard({
           
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Mail className="w-3 h-3" />
-              <span>{email}</span>
+              <Phone className="w-3 h-3" />
+              <span>{phone}</span>
             </div>
             
             <div className="flex items-center gap-2 text-muted-foreground">
