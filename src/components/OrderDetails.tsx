@@ -76,7 +76,8 @@ export function OrderDetails({
               name_en,
               name_ar,
               sku,
-              image_url
+              image_url,
+              product_code
             )
           )
         `).eq("id", orderId).single();

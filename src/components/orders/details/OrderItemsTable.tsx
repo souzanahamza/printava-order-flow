@@ -30,7 +30,7 @@ export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTable
                         <thead className="bg-muted/50">
                             <tr>
                                 <th className="text-left p-4 font-medium">Product</th>
-                                <th className="text-center p-4 font-medium">SKU</th>
+                                <th className="text-center p-4 font-medium">Product Code</th>
                                 <th className="text-center p-4 font-medium">Quantity</th>
                                 {canViewFinancials && <th className="text-right p-4 font-medium">Unit Price</th>}
                                 {canViewFinancials && <th className="text-right p-4 font-medium">Total</th>}
@@ -59,7 +59,7 @@ export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTable
                                         </div>
                                     </td>
                                     <td className="p-4 text-center text-sm text-muted-foreground">
-                                        {item.product.sku}
+                                        {item.product.product_code || "-"}
                                     </td>
                                     <td className="p-4 text-center font-medium">{item.quantity}</td>
                                     {canViewFinancials && <td className="p-4 text-right">{formatCurrency(item.unit_price, currency)}</td>}

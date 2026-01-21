@@ -33,6 +33,7 @@ export type OrderDetail = {
             name_ar: string;
             image_url: string | null;
             sku: string;
+            product_code: string | null;
         };
     }>;
 };
