@@ -32,7 +32,7 @@ type QuotationDetail = {
   id: string;
   client_id: string | null;
   client_name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   valid_until: string | null;
   notes: string | null;
@@ -223,7 +223,9 @@ export function QuotationDetails({ quotationId }: QuotationDetailsProps) {
             <div className="font-semibold text-foreground">
               {quotation.client_name}
             </div>
-            <div className="text-muted-foreground">{quotation.email}</div>
+            {quotation.email && (
+              <div className="text-muted-foreground">{quotation.email}</div>
+            )}
             {quotation.phone && (
               <div className="text-muted-foreground">{quotation.phone}</div>
             )}

@@ -17,7 +17,7 @@ import { QuotationDetails } from "@/components/quotations/QuotationDetails";
 type QuotationWithRelations = {
   id: string;
   client_name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   valid_until: string | null;
   total_price: number | null;
@@ -79,7 +79,7 @@ export default function Quotations() {
       return (
         q.id.toLowerCase().includes(query) ||
         q.client_name.toLowerCase().includes(query) ||
-        q.email.toLowerCase().includes(query)
+        (q.email && q.email.toLowerCase().includes(query))
       );
     }) || [];
 
@@ -148,9 +148,11 @@ export default function Quotations() {
                       </div>
                       <div className="truncate">
                         <div className="font-medium">{q.client_name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {q.email}
-                        </div>
+                        {q.email && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {q.email}
+                          </div>
+                        )}
                       </div>
                       <div className="text-sm">
                         {q.valid_until
