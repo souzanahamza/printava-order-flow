@@ -409,7 +409,6 @@ export function OrderDetails({
                       items={order.order_items}
                       totalPrice={order.total_price}
                       currency={displayCurrency}
-                      exchangeRate={isForeignCurrency ? exchangeRate : null}
                     />
 
                     {/* Archived Revisions History */}

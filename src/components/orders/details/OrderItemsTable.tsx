@@ -8,21 +8,13 @@ interface OrderItemsTableProps {
     items: OrderDetail["order_items"];
     totalPrice: number;
     currency?: string;
-    exchangeRate?: number | null;
 }
 
-export function OrderItemsTable({ items, totalPrice, currency, exchangeRate }: OrderItemsTableProps) {
+export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTableProps) {
     const { role, loading: roleLoading } = useUserRole();
 
     // Role-based financial visibility - wait for role to load first
     const canViewFinancials = !roleLoading && ['admin', 'sales', 'accountant'].includes(role || '');
-
-    const convert = (amount: number) => {
-        if (exchangeRate && exchangeRate > 0) {
-            return amount / exchangeRate;
-        }
-        return amount;
-    };
 
     return (
         <Card>
@@ -70,8 +62,8 @@ export function OrderItemsTable({ items, totalPrice, currency, exchangeRate }: O
                                         {item.product.sku}
                                     </td>
                                     <td className="p-4 text-center font-medium">{item.quantity}</td>
-                                    {canViewFinancials && <td className="p-4 text-right">{formatCurrency(convert(item.unit_price), currency)}</td>}
-                                    {canViewFinancials && <td className="p-4 text-right font-semibold">{formatCurrency(convert(item.item_total), currency)}</td>}
+                                    {canViewFinancials && <td className="p-4 text-right">{formatCurrency(item.unit_price, currency)}</td>}
+                                    {canViewFinancials && <td className="p-4 text-right font-semibold">{formatCurrency(item.item_total, currency)}</td>}
                                 </tr>
                             ))}
                         </tbody>
@@ -82,7 +74,7 @@ export function OrderItemsTable({ items, totalPrice, currency, exchangeRate }: O
                                         Total:
                                     </td>
                                     <td className="p-4 text-right text-lg font-bold text-primary">
-                                        {formatCurrency(convert(totalPrice), currency)}
+                                        {formatCurrency(totalPrice, currency)}
                                     </td>
                                 </tr>
                             </tfoot>
