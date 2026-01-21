@@ -109,18 +109,22 @@ const Dashboard = () => {
     if (!allOrders) return [];
     const totalOrders = allOrders.length;
     const pendingOrders = allOrders.filter(o => o.status?.toLowerCase() === "new").length;
+    // الطلبات النشطة = كل شيء ما عدا (المسلمة والملغية)
+const activeOrders = allOrders.filter(o => 
+  !['Delivered', 'Canceled'].includes(o.status)
+).length;
     const completedOrders = allOrders.filter(o => o.status?.toLowerCase() === "delivered").length;
     // Use total_price_company for unified revenue in base currency, fallback to total_price for legacy orders
     const totalRevenue = allOrders.reduce((sum, o) => sum + (o.total_price_company || o.total_price || 0), 0);
-    const inProductionOrders = allOrders.filter(o => o.status?.toLowerCase() === "production").length;
+    const inProductionOrders = allOrders.filter(o => o.status?.toLowerCase() === "in production").length;
     return [{
       title: "Total Orders",
       value: totalOrders.toString(),
       icon: ShoppingCart,
       change: `${completedOrders} completed`
     }, {
-      title: "Pending",
-      value: pendingOrders.toString(),
+      title: "Active Orders",
+      value: activeOrders.toString(),
       icon: Clock,
       change: "Awaiting action"
     }, {
