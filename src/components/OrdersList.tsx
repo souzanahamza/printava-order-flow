@@ -67,7 +67,7 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
   const canViewFinancials = !roleLoading && ['admin', 'sales', 'accountant'].includes(role || '');
 
   // Designer-specific statuses
-  const DESIGNER_STATUSES = ['In Design', 'Design Revision', 'Waiting for Print File'];
+  const DESIGNER_STATUSES = ['Ready for Design', 'In Design', 'Design Revision', 'Waiting for Print File'];
   const isDesigner = role === 'designer';
 
   // Fetch order statuses using custom hook
