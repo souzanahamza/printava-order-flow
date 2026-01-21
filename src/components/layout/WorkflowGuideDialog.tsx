@@ -620,24 +620,24 @@ export function WorkflowGuideDialog() {
                         </TabsContent>
 
                         {/* ============== FEATURES TAB ============== */}
-                    {/* ============== FEATURES TAB (FIXED RTL) ============== */}
-                    <TabsContent value="features" className="p-6 space-y-4 mt-0">
+                   {/* ============== FEATURES TAB (FIXED ALIGNMENT) ============== */}
+                   <TabsContent value="features" className="p-6 space-y-4 mt-0">
+                            {/* العنوان الرئيسي للتبويب */}
                             <div className="rounded-lg border bg-gradient-to-r from-primary/5 to-primary/10 p-4 text-right">
-                                {/* تم إزالة flex-row-reverse لأن dir=rtl تكفي */}
                                 <h3 className="font-semibold text-lg mb-2 flex items-center gap-2">
                                     <FileText className="h-5 w-5 text-primary" />
                                     كيف أقوم بـ...؟
                                 </h3>
-                                <p className="text-muted-foreground text-sm text-right">
+                                <p className="text-muted-foreground text-sm">
                                     إرشادات خطوة بخطوة لأهم العمليات في النظام
                                 </p>
                             </div>
 
-                            <Accordion type="single" collapsible className="w-full text-right">
+                            <Accordion type="single" collapsible className="w-full text-right" dir="rtl">
                                 {featuresGuide.map((feature, index) => (
                                     <AccordionItem key={index} value={`feature-${index}`}>
                                         <AccordionTrigger className="hover:no-underline">
-                                            {/* ترتيب العناصر: الأيقونة أولاً في الكود ستظهر يمين الشاشة في RTL */}
+                                            {/* العنوان: الأيقونة يمين، النص يسار (تلقائي في RTL) */}
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 rounded-lg bg-primary/10">
                                                     <feature.icon className="h-4 w-4 text-primary" />
@@ -647,36 +647,38 @@ export function WorkflowGuideDialog() {
                                         </AccordionTrigger>
                                         <AccordionContent className="pt-4">
                                             <div className="space-y-4 ps-4 pe-2">
+                                                {/* قسم الخطوات */}
                                                 <div>
-                                                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 text-right">
-                                                        <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs text-primary font-bold">1</span>
-                                                        الخطوات:
+                                                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2 ">
+                                                        :الخطوات
                                                     </h4>
-                                                    <ol className="space-y-2">
+                                                    <ol className="space-y-3">
                                                         {feature.steps.map((step, sIdx) => (
                                                             <li key={sIdx} className="text-sm flex items-start gap-3 text-right">
-                                                                {/* الرقم */}
-                                                                <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
+                                                                {/* الرقم: سيظهر على اليمين */}
+                                                                <span className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 border border-muted-foreground/20">
                                                                     {sIdx + 1}
                                                                 </span>
-                                                                {/* النص - مع ضبط الاتجاه للنصوص المختلطة */}
-                                                                <span className="flex-1 leading-relaxed" dir="auto">
+                                                                {/* النص: سيظهر يسار الرقم */}
+                                                                <span className="flex-1 leading-relaxed text-slate-700" dir="auto">
                                                                     {step}
                                                                 </span>
                                                             </li>
                                                         ))}
                                                     </ol>
                                                 </div>
+
+                                                {/* قسم النصائح */}
                                                 {feature.tips && feature.tips.length > 0 && (
-                                                    <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3">
-                                                        <h4 className="text-sm font-semibold mb-2 flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                                                    <div className="mt-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 p-4">
+                                                        <h4 className="text-sm font-bold mb-2 flex items-center gap-2 text-blue-700 dark:text-blue-300">
                                                             <Lightbulb className="h-4 w-4" />
-                                                            نصائح مفيدة:
+                                                            نصائح مفيدة
                                                         </h4>
-                                                        <ul className="space-y-1">
+                                                        <ul className="space-y-2">
                                                             {feature.tips.map((tip, tIdx) => (
-                                                                <li key={tIdx} className="text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
-                                                                    <span className="text-blue-400 mt-1">•</span>
+                                                                <li key={tIdx} className="text-sm text-blue-800 dark:text-blue-200 flex items-start gap-2">
+                                                                    <span className="text-blue-400 mt-1.5 h-1.5 w-1.5 rounded-full bg-current block"></span>
                                                                     <span className="flex-1" dir="auto">{tip}</span>
                                                                 </li>
                                                             ))}
