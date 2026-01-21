@@ -1,4 +1,5 @@
 import { Bell, User, LogOut } from "lucide-react";
+import { WorkflowGuideDialog } from "@/components/layout/WorkflowGuideDialog";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -44,6 +45,8 @@ export function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <WorkflowGuideDialog />
+
           <Button variant="ghost" size="icon">
             <Bell className="h-5 w-5" />
           </Button>

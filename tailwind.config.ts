@@ -139,6 +139,14 @@ export default {
   				'Liberation Mono',
   				'Courier New',
   				'monospace'
+  			],
+  			arabic: [
+  				'Cairo',
+  				'Tajawal',
+  				'Noto Sans Arabic',
+  				'Segoe UI',
+  				'Tahoma',
+  				'sans-serif'
   			]
   		}
   	}
