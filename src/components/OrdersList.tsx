@@ -65,6 +65,18 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
   const queryClient = useQueryClient();
   const { role, companyId, loading: roleLoading } = useUserRole();
 
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Debounce search query for performance (500ms delay)
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearchQuery, statusFilter, clientId, paymentStatusFilter]);
+
   // Role-based financial visibility - wait for role to load first
   const canViewFinancials = !roleLoading && ['admin', 'sales', 'accountant'].includes(role || '');
 
@@ -93,12 +105,17 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
 
   const currency = companyProfile?.base_currency?.code;
 
-  // Fetch orders with all details
+  // Calculate pagination range
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  // Fetch orders with all details (server-side pagination)
   const {
-    data: orders,
-    isLoading
+    data: ordersData,
+    isLoading,
+    isFetching
   } = useQuery({
-    queryKey: ["orders", isDesigner, clientId, paymentStatusFilter],
+    queryKey: ["orders", isDesigner, clientId, paymentStatusFilter, statusFilter, debouncedSearchQuery, page, pageSize],
     queryFn: async () => {
       let query = supabase.from("orders").select(`
           *,
@@ -119,7 +136,7 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
               product_code
             )
           )
-        `);
+        `, { count: 'exact' });
 
       // Filter by client if clientId is provided
       if (clientId) {
@@ -136,11 +153,47 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
         query = query.in('status', DESIGNER_STATUSES);
       }
 
-      const { data, error } = await query.order("created_at", { ascending: false });
+      // Filter by status if not "all"
+      if (statusFilter !== "all") {
+        query = query.ilike('status', statusFilter);
+      }
+
+      // Apply search filter if search query exists
+      if (debouncedSearchQuery.trim()) {
+        const searchTerm = debouncedSearchQuery.trim();
+        // Search by order_number, client_name, or email
+        query = query.or(
+          `client_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,order_number::text.ilike.%${searchTerm}%`
+        );
+      }
+
+      // Apply pagination range
+      query = query.range(from, to);
+
+      const { data, error, count } = await query.order("created_at", { ascending: false });
       if (error) throw error;
-      return data as OrderWithDetails[];
-    }
+      return {
+        orders: data as OrderWithDetails[],
+        totalCount: count || 0
+      };
+    },
+    placeholderData: keepPreviousData,
   });
+
+  const orders = ordersData?.orders || [];
+  const totalCount = ordersData?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+    }
+  };
+
+  const handlePageSizeChange = (value: string) => {
+    setPageSize(Number(value));
+    setPage(1); // Reset to first page when changing page size
+  };
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({
@@ -172,17 +225,6 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
   const availableStatuses = isDesigner
     ? statuses?.filter(s => DESIGNER_STATUSES.includes(s.name))
     : statuses;
-
-  const filteredOrders = orders?.filter(order => {
-    const matchesStatus = statusFilter === "all" || order.status?.toLowerCase() === statusFilter.toLowerCase();
-    const orderNumberStr = order.order_number != null ? String(order.order_number) : '';
-    const matchesSearch = !searchQuery || 
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      order.client_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      order.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      orderNumberStr.includes(searchQuery);
-    return matchesStatus && matchesSearch;
-  }) || [];
 
   const handleStatusUpdate = (orderId: string, newStatus: string) => {
     updateStatusMutation.mutate({
@@ -226,34 +268,108 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
             </CardContent>
           </Card>)}
         </div>
-      ) : filteredOrders && filteredOrders.length > 0 ? (
-        <div className="space-y-4">
-          {filteredOrders.map(order => (
-            <OrderCard
-              key={order.id}
-              id={order.id}
-              order_number={order.order_number}
-              client_name={order.client_name}
-              email={order.email}
-              delivery_date={order.delivery_date}
-              status={order.status}
-              statusColor={statuses?.find(s => s.name === order.status)?.color}
-              total_price={order.total_price}
-              foreignPrice={order.total_price_foreign}
-              basePriceCompany={order.total_price_company}
-              currencyCode={order.currencies?.code}
-              pricing_tier={order.pricing_tier}
-              currency={currency}
-              onClick={() => setSelectedOrderId(order.id)}
-            />
-          ))}
-        </div>
+      ) : orders && orders.length > 0 ? (
+        <Card>
+          <CardContent className="p-4 space-y-4">
+            {isFetching && !isLoading && (
+              <div className="text-center py-2 text-sm text-muted-foreground">
+                Loading...
+              </div>
+            )}
+            {orders.map(order => (
+              <OrderCard
+                key={order.id}
+                id={order.id}
+                order_number={order.order_number}
+                client_name={order.client_name}
+                email={order.email}
+                delivery_date={order.delivery_date}
+                status={order.status}
+                statusColor={statuses?.find(s => s.name === order.status)?.color}
+                total_price={order.total_price}
+                foreignPrice={order.total_price_foreign}
+                basePriceCompany={order.total_price_company}
+                currencyCode={order.currencies?.code}
+                pricing_tier={order.pricing_tier}
+                currency={currency}
+                onClick={() => setSelectedOrderId(order.id)}
+              />
+            ))}
+          </CardContent>
+          
+          {/* Pagination Controls */}
+          <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-6 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Showing {from + 1}-{Math.min(to + 1, totalCount)} of {totalCount} orders</span>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {/* Rows per page selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Rows per page:</span>
+                <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+                  <SelectTrigger className="w-[70px] h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Page navigation */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page === 1}
+                  className="h-8 px-3"
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                
+                <span className="text-sm font-medium px-2">
+                  Page {page} of {totalPages || 1}
+                </span>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= totalPages}
+                  className="h-8 px-3"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          </CardFooter>
+        </Card>
       ) : (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground">
-              {clientId ? "No orders found for this client" : "No orders found"}
+              {debouncedSearchQuery 
+                ? "No orders match your search" 
+                : clientId 
+                  ? "No orders found for this client" 
+                  : "No orders found"}
             </p>
+            {debouncedSearchQuery && (
+              <Button 
+                variant="outline" 
+                className="mt-4"
+                onClick={() => setSearchQuery("")}
+              >
+                Clear Search
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
