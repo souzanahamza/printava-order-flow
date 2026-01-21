@@ -8,7 +8,7 @@
  */
 export function formatCurrency(
   amount: number, 
-  currencyCode: string = 'AED', 
+  currencyCode: string = ' ', 
   symbol?: string | null
 ): string {
   // Smart precision: for values less than 1, show 4-6 decimals to handle weak base currencies

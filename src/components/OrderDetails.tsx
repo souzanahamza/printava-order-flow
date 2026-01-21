@@ -202,7 +202,7 @@ export function OrderDetails({
             // 2. Determine which currency to show in the UI
             const displayCurrency = isForeignCurrency
               ? order.currencies?.code
-              : companyProfile?.base_currency?.code || 'AED';
+              : companyProfile?.base_currency?.code || '';
 
             // 3. Get the Rate (Safe fallback to 1)
             const exchangeRate = order.exchange_rate || 1;

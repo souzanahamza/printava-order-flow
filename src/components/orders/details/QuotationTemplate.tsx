@@ -73,7 +73,7 @@ export const QuotationTemplate = React.forwardRef<
   const quotationCurrency =
     quotation.currencies?.code ||
     companyProfile?.base_currency?.code ||
-    "AED";
+    " ";
   const exchangeRate = quotation.exchange_rate || 1;
 
   const toQuotationCurrency = (baseAmount: number) => {
