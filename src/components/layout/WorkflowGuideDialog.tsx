@@ -479,7 +479,7 @@ export function WorkflowGuideDialog() {
                                     مسار الطلب في النظام
                                 </h3>
                                 <p className="text-muted-foreground text-sm">
-                                    كل طلب يمر بمراحل متسلسلة من التصميم إلى التسليم. كل مرحلة لها مسؤول معين وإجراء محدد.
+                                    كل طلب يمر بمراحل متسلسلة من التصميم إلى التسليم. كل مرحلة لها مسؤول معين وإجراء محدد
                                 </p>
                                 <div className="flex items-center gap-2 mt-3 flex-wrap text-xs">
                                     <Badge variant="outline" className="bg-pink-500/10 text-pink-700 border-pink-300">تصميم</Badge>
