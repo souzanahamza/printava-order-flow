@@ -15,7 +15,7 @@ const Orders = () => {
         </div>
         <Button onClick={() => navigate("/new-order")}>
           <Plus className="mr-2 h-4 w-4" />
-          New Order
+          Create Order
         </Button>
       </div>
 
