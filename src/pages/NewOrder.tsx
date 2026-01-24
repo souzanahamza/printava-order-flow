@@ -273,6 +273,11 @@ const NewOrder = () => {
           setIsManualRate(true);
         }
 
+        // Prefill delivery date
+        if (quotation.delivery_date) {
+          setDeliveryDate(new Date(quotation.delivery_date));
+        }
+
         // Prefill items
         if (quotation.quotation_items && quotation.quotation_items.length > 0) {
           const mappedItems: OrderItem[] = quotation.quotation_items.map((item: any) => ({

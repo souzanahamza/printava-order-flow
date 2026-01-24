@@ -112,6 +112,7 @@ const NewQuotation = () => {
     ) || [];
 
   const [validUntil, setValidUntil] = useState<Date | undefined>();
+  const [deliveryDate, setDeliveryDate] = useState<Date | undefined>();
   const [products, setProducts] = useState<Product[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -428,6 +429,7 @@ const NewQuotation = () => {
           email: formData.email,
           phone: formData.phone,
           valid_until: validUntil.toISOString(),
+          delivery_date: deliveryDate ? deliveryDate.toISOString() : null,
           pricing_tier_id: formData.pricing_tier_id || null,
           notes: formData.notes,
           total_price: totalForeign,
@@ -663,40 +665,74 @@ const NewQuotation = () => {
             </div>
 
             {/* Valid Until Date */}
-            <div className="space-y-2">
-              <Label>Valid Until *</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !validUntil && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {validUntil ? (
-                      format(validUntil, "PPP")
-                    ) : (
-                      <span>Pick a date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={validUntil}
-                    onSelect={(date) => {
-                      if (date) {
-                        setValidUntil(date);
-                      }
-                    }}
-                    initialFocus
-                    className="pointer-events-auto"
-                    disabled={(date) => date < new Date()}
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Valid Until *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !validUntil && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {validUntil ? (
+                        format(validUntil, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={validUntil}
+                      onSelect={(date) => {
+                        if (date) {
+                          setValidUntil(date);
+                        }
+                      }}
+                      initialFocus
+                      className="pointer-events-auto"
+                      disabled={(date) => date < new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Estimated Delivery Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !deliveryDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {deliveryDate ? (
+                        format(deliveryDate, "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={deliveryDate}
+                      onSelect={setDeliveryDate}
+                      initialFocus
+                      className="pointer-events-auto"
+                      disabled={(date) => date < new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
             {/* Currency */}
