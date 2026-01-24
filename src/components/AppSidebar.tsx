@@ -37,7 +37,6 @@ import {
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ['admin', 'sales', 'designer', 'accountant'] },
   { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'accountant', 'production'] },
-  { title: "New Order", url: "/new-order", icon: Plus, roles: ['admin', 'sales'] },
   { title: "Quotations", url: "/quotations", icon: FileText, roles: ['admin', 'sales'] },
   // { title: "New Quotation", url: "/quotations/new", icon: Plus, roles: ['admin', 'sales'] },
   { title: "Clients", url: "/clients", icon: UserCircle, roles: ['admin', 'sales', 'accountant'] },
