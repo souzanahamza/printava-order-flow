@@ -210,13 +210,11 @@ const Products = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[60px]">Image</TableHead>
-                    <TableHead className="text-right">Group Code</TableHead>
-                    <TableHead className="text-right">Group Name</TableHead>
+                    <TableHead className="w-[100px]">SKU</TableHead>
+                    <TableHead>Product Name</TableHead>
+                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-right">Item Code</TableHead>
-                    <TableHead className="text-right">Item Name</TableHead>
-                    <TableHead className="text-right">Unit</TableHead>
-                    <TableHead className="text-right font-bold text-base">Price</TableHead>
                     {canEditProducts && <TableHead className="w-[80px] text-center">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -224,7 +222,7 @@ const Products = () => {
                   {isFetching && !isLoading ? (
                     // Show loading overlay when fetching (e.g., search/pagination)
                     <TableRow>
-                      <TableCell colSpan={canEditProducts ? 8 : 7} className="h-48">
+                      <TableCell colSpan={canEditProducts ? 6 : 5} className="h-48">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                           <span className="text-sm text-muted-foreground">Searching products...</span>
@@ -239,41 +237,36 @@ const Products = () => {
                           className={canEditProducts ? "cursor-pointer hover:bg-muted/50" : ""}
                           onClick={canEditProducts ? () => handleEditProduct(product) : undefined}
                         >
-                          <TableCell className="w-[60px]">
-                            {product.image_url ? (
-                              <img
-                                src={product.image_url}
-                                alt={product.name_en || product.name_ar}
-                                className="h-12 w-12 object-cover rounded border"
-                              />
-                            ) : (
-                              <div className="h-12 w-12 bg-muted rounded border flex items-center justify-center">
-                                <Package className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                            )}
+                          <TableCell className="font-medium">
+                            {product.sku || "-"}
                           </TableCell>
-                          <TableCell className="text-right">
-                            {(product as any).group_code || "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {product.category}
-                          </TableCell>
-                          <TableCell className="text-right font-medium">
-                            {product.product_code || "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex flex-col items-end">
-                              <span className="font-medium">{product.name_ar}</span>
-                              {product.name_en && (
-                                <span className="text-xs text-muted-foreground">{product.name_en}</span>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {product.image_url ? (
+                                <img
+                                  src={product.image_url}
+                                  alt={product.name_en || product.name_ar}
+                                  className="h-10 w-10 object-cover rounded border"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 bg-muted rounded border flex items-center justify-center">
+                                  <Package className="h-4 w-4 text-muted-foreground" />
+                                </div>
                               )}
+                              <div className="flex flex-col">
+                                <span className="font-bold text-base text-foreground">{product.name_en}</span>
+                                <span className="text-sm text-muted-foreground">{product.name_ar}</span>
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            {((product as any).unit_type || "pcs").toUpperCase()}
+                            {product.stock_quantity || 0}
                           </TableCell>
                           <TableCell className="text-right font-bold text-base text-foreground">
                             {formatCurrency(Number(product.unit_price || 0), currency)}
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            {product.product_code || "-"}
                           </TableCell>
                           {canEditProducts && (
                             <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
