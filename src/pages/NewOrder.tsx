@@ -57,6 +57,7 @@ interface Product {
   name_ar: string;
   name_en: string;
   product_code: string;
+  sku: string | null;
   unit_price: number;
 }
 
@@ -64,6 +65,7 @@ interface OrderItem {
   product_id: string;
   product_name: string;
   product_code: string;
+  sku?: string;
   quantity: number;
   unit_price: number;
   item_total: number;
@@ -212,7 +214,8 @@ const NewOrder = () => {
               product:products(
                 name_en,
                 name_ar,
-                product_code
+                product_code,
+                sku
               )
             )
           `
@@ -275,9 +278,10 @@ const NewOrder = () => {
           const mappedItems: OrderItem[] = quotation.quotation_items.map((item: any) => ({
             product_id: item.product_id,
             product_name: item.product
-              ? `${item.product.name_ar} (${item.product.name_en})`
+              ? `${item.product.name_en} (${item.product.name_ar})`
               : "",
             product_code: item.product?.product_code || "",
+            sku: item.product?.sku || "",
             quantity: item.quantity,
             unit_price: item.unit_price,
             item_total: item.item_total,
@@ -315,7 +319,8 @@ const NewOrder = () => {
               product:products(
                 name_en,
                 name_ar,
-                product_code
+                product_code,
+                sku
               )
             )
           `
@@ -376,9 +381,10 @@ const NewOrder = () => {
           const mappedItems: OrderItem[] = order.order_items.map((item: any) => ({
             product_id: item.product_id,
             product_name: item.product
-              ? `${item.product.name_ar} (${item.product.name_en})`
+              ? `${item.product.name_en} (${item.product.name_ar})`
               : "",
             product_code: item.product?.product_code || "",
+            sku: item.product?.sku || "",
             quantity: item.quantity,
             unit_price: item.unit_price,
             item_total: item.item_total,
@@ -537,6 +543,7 @@ const NewOrder = () => {
         product_id: "",
         product_name: "",
         product_code: "",
+        sku: "",
         quantity: 1,
         unit_price: 0,
         item_total: 0,
@@ -561,8 +568,9 @@ const NewOrder = () => {
     const updatedItems = [...orderItems];
     updatedItems[index] = {
       product_id: product.id,
-      product_name: `${product.name_ar} (${product.name_en})`,
+      product_name: `${product.name_en} (${product.name_ar})`,
       product_code: product.product_code,
+      sku: product.sku || "",
       quantity,
       unit_price: unitPrice,
       item_total: unitPrice * quantity,
@@ -660,8 +668,8 @@ const NewOrder = () => {
         // Update file status to success
         setUploadedFiles(prev => prev.map(f => 
           f.tempId === tempId 
-            ? { ...f, fileUrl: publicUrl, status: 'success' as const }
-            : f
+          ? { ...f, fileUrl: publicUrl, status: 'success' as const }
+          : f
         ));
         
         toast.success(`${file.name} uploaded`);
@@ -670,8 +678,8 @@ const NewOrder = () => {
         // Update file status to error
         setUploadedFiles(prev => prev.map(f => 
           f.tempId === tempId 
-            ? { ...f, status: 'error' as const, error: (error as Error).message }
-            : f
+          ? { ...f, status: 'error' as const, error: (error as Error).message }
+          : f
         ));
         toast.error(`Failed to upload ${file.name}`);
       }
@@ -1433,12 +1441,12 @@ const NewOrder = () => {
                           <Button
                             variant="outline"
                             role="combobox"
-                            className="w-full justify-between"
+                            className="w-full justify-between h-auto min-h-10 whitespace-normal text-left"
                           >
                             {item.product_name || "Select product"}
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[400px] p-0" align="start">
+                        <PopoverContent className="w-[600px] p-0" align="start">
                           <Command>
                             <CommandInput placeholder="Search products..." />
                             <CommandList>
@@ -1447,15 +1455,16 @@ const NewOrder = () => {
                                 {products.map((product) => (
                                   <CommandItem
                                     key={product.id}
-                                    value={`${product.name_ar} ${product.name_en} ${product.product_code}`}
+                                    value={`${product.name_en} ${product.name_ar} ${product.product_code}`}
                                     onSelect={() => updateOrderItem(index, product)}
+                                    className="h-auto items-start py-3"
                                   >
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">
-                                        {product.name_ar}
+                                    <div className="flex flex-col w-full gap-1">
+                                      <span className="font-medium whitespace-normal leading-snug">
+                                        {product.name_en}
                                       </span>
                                       <span className="text-sm text-muted-foreground">
-                                        {product.name_en} - {product.product_code}
+                                        {product.name_ar} - {product.product_code}
                                       </span>
                                     </div>
                                   </CommandItem>
@@ -1465,9 +1474,11 @@ const NewOrder = () => {
                           </Command>
                         </PopoverContent>
                       </Popover>
-                      {item.product_code && (
+                      {(item.product_code || item.sku) && (
                         <p className="text-xs text-muted-foreground">
-                          Code: {item.product_code}
+                          {item.product_code && `Code: ${item.product_code}`}
+                          {item.product_code && item.sku && " • "}
+                          {item.sku && `SKU: ${item.sku}`}
                         </p>
                       )}
                     </div>
