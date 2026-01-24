@@ -10,6 +10,7 @@ export interface QuotationCompanyProfile {
   logo_url: string | null;
   website: string | null;
   tax_number?: string | null;
+  tax_rate?: number | null; // Added tax_rate to interface
   base_currency?: {
     code: string;
   };
@@ -32,6 +33,7 @@ interface ExtendedQuotationDetail {
   phone: string | null;
   created_at: string;
   valid_until?: string | null;
+  delivery_date?: string | null; // Added delivery_date to interface
   notes?: string | null;
   total_price_foreign?: number | null;
   exchange_rate?: number | null;
@@ -83,15 +85,19 @@ export const QuotationTemplate = React.forwardRef<
     return baseAmount;
   };
 
+  const taxPercentage = companyProfile?.tax_rate ?? 0;
+
   const subtotal = quotation.quotation_items.reduce(
     (acc, item) => acc + toQuotationCurrency(item.item_total),
     0
   );
 
+  const taxAmount = subtotal * (taxPercentage / 100);
+
   const grandTotal =
     hasQuotationCurrency && quotation.total_price_foreign
       ? quotation.total_price_foreign
-      : subtotal;
+      : subtotal + taxAmount;
 
   const clientTRN = quotation.clients?.tax_number || "-";
   const clientAddress = quotation.clients?.address || "-";
@@ -171,6 +177,16 @@ export const QuotationTemplate = React.forwardRef<
                 </p>
               </div>
             )}
+            {quotation.delivery_date && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+                  Delivery Date
+                </p>
+                <p className="text-slate-900">
+                  {format(new Date(quotation.delivery_date), "dd/MM/yyyy")}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -206,18 +222,19 @@ export const QuotationTemplate = React.forwardRef<
 
       {/* ITEMS TABLE */}
       <div className="mb-8">
-        <div className="grid grid-cols-[40px_3fr_80px_100px_120px] gap-4 py-3 border-b border-slate-200 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+        <div className="grid grid-cols-[40px_3fr_80px_100px_80px_120px] gap-4 py-3 border-b border-slate-200 text-[10px] uppercase tracking-wider font-bold text-slate-500">
           <div className="text-left">#</div>
           <div className="text-left">Item & Description</div>
           <div className="text-right">Quantity</div>
           <div className="text-right">Rate</div>
+          <div className="text-right">Tax ({taxPercentage}%)</div>
           <div className="text-right">Amount</div>
         </div>
         <div>
           {quotation.quotation_items.map((item, index) => (
             <div
               key={item.id}
-              className="grid grid-cols-[40px_3fr_80px_100px_120px] gap-4 py-4 border-b border-slate-100 text-xs items-center"
+              className="grid grid-cols-[40px_3fr_80px_100px_80px_120px] gap-4 py-4 border-b border-slate-100 text-xs items-center"
             >
               <div className="text-left text-slate-400 font-medium">
                 {index + 1}
@@ -239,6 +256,7 @@ export const QuotationTemplate = React.forwardRef<
                   quotationCurrency
                 )}
               </div>
+              <div className="text-right text-slate-500">{taxPercentage}%</div>
               <div className="text-right font-semibold text-slate-900">
                 {formatCurrency(
                   toQuotationCurrency(item.item_total),
@@ -254,11 +272,19 @@ export const QuotationTemplate = React.forwardRef<
       <div className="flex justify-end mb-16">
         <div className="w-[320px]">
           <div className="flex justify-between py-3 border-b border-slate-100 text-xs">
-            <span className="text-slate-500 font-medium">Subtotal</span>
+            <span className="text-slate-500 font-medium">Subtotal (Excl. VAT)</span>
             <span className="text-slate-900 font-semibold">
               {formatCurrency(subtotal, quotationCurrency)}
             </span>
           </div>
+
+          <div className="flex justify-between py-3 border-b border-slate-100 text-xs">
+            <span className="text-slate-500 font-medium">VAT ({taxPercentage}%)</span>
+            <span className="text-slate-900 font-semibold">
+              {formatCurrency(taxAmount, quotationCurrency)}
+            </span>
+          </div>
+
           <div className="flex justify-between py-4 mt-2 bg-slate-50 px-4 rounded text-sm">
             <span className="text-slate-900 font-bold uppercase tracking-wide">
               Total
