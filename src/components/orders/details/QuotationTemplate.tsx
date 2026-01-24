@@ -11,6 +11,13 @@ export interface QuotationCompanyProfile {
   website: string | null;
   tax_number?: string | null;
   tax_rate?: number | null; // Added tax_rate to interface
+  bank_name?: string | null;
+  account_holder_name?: string | null;
+  account_number?: string | null;
+  iban?: string | null;
+  swift_code?: string | null;
+  invoice_notes?: string | null;
+  invoice_terms?: string | null;
   base_currency?: {
     code: string;
   };
@@ -296,15 +303,72 @@ export const QuotationTemplate = React.forwardRef<
         </div>
       </div>
 
-      {/* FOOTER - simple validity message */}
-      <div className="mt-auto space-y-4 pt-8 border-t border-slate-200">
-        <p className="text-xs text-slate-600">
-          This quotation is valid until the stated validity date above and may
-          be subject to change thereafter.
-        </p>
-        <p className="text-[10px] text-slate-500">
-          Thank you for considering our services.
-        </p>
+      {/* ================= BANK DETAILS ================= */}
+      {(companyProfile?.bank_name || companyProfile?.account_number) && (
+        <div className="mb-8 p-4 bg-slate-50 rounded-lg border border-slate-100">
+          <h4 className="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-3">
+            Bank Details:
+          </h4>
+          <div className="text-xs text-slate-700 grid grid-cols-2 gap-y-2 gap-x-8">
+            <div className="col-span-2 font-bold text-slate-900">
+              {companyProfile.account_holder_name}
+            </div>
+
+            {companyProfile.bank_name && (
+              <div className="flex gap-2">
+                <span className="text-slate-500 min-w-[80px]">Bank:</span>
+                <span className="font-medium">{companyProfile.bank_name}</span>
+              </div>
+            )}
+
+            {companyProfile.account_number && (
+              <div className="flex gap-2">
+                <span className="text-slate-500 min-w-[80px]">Account No:</span>
+                <span className="font-medium">
+                  {companyProfile.account_number}
+                </span>
+              </div>
+            )}
+
+            {companyProfile.iban && (
+              <div className="flex gap-2">
+                <span className="text-slate-500 min-w-[80px]">IBAN:</span>
+                <span className="font-medium">{companyProfile.iban}</span>
+              </div>
+            )}
+
+            {companyProfile.swift_code && (
+              <div className="flex gap-2">
+                <span className="text-slate-500 min-w-[80px]">Swift Code:</span>
+                <span className="font-medium">{companyProfile.swift_code}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* FOOTER */}
+      <div className="mt-auto space-y-6 pt-8 border-t border-slate-200">
+        {/* Terms */}
+        <div>
+          <h4 className="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-2">
+            Terms and Conditions
+          </h4>
+          <p className="text-[10px] text-slate-600 whitespace-pre-line leading-relaxed">
+            {companyProfile?.invoice_terms ||
+              "- Production starts only after: Advance payment is received and Final designs are submitted and approved in writing.\n- Once production has started, the order cannot be canceled or returned under any circumstances.\n- A color variation of up to 5% may occur due to differences in screen displays and the nature of printed materials. This is not considered a defect.\n- Client is fully responsible for verifying all design content (text, layout, images, etc.) before final approval. Printava is not liable for errors once the design is approved.\n- Printava is not responsible for delays caused by external factors such as courier issues, public holidays, or raw material shortages.\n- Completed orders must be collected within 7 days of notification. Unclaimed orders may incur storage fees or be discarded.\n- Delays may occur due to unexpected technical issues. Printava will inform the client promptly, but is not liable for such delays."}
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-xs text-slate-600">
+            This quotation is valid until the stated validity date above and may
+            be subject to change thereafter.
+          </p>
+          <p className="text-[10px] text-slate-500">
+            Thank you for considering our services.
+          </p>
+        </div>
       </div>
     </div>
   );

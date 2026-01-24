@@ -30,6 +30,11 @@ const companySchema = z.object({
   email: z.string().email('Invalid email').max(100).optional().or(z.literal('')),
   website: z.string().url('Invalid URL').max(200).optional().or(z.literal('')),
   address: z.string().max(500).optional().or(z.literal('')),
+  bank_name: z.string().max(100).optional().or(z.literal('')),
+  account_holder_name: z.string().max(100).optional().or(z.literal('')),
+  account_number: z.string().max(50).optional().or(z.literal('')),
+  iban: z.string().max(50).optional().or(z.literal('')),
+  swift_code: z.string().max(20).optional().or(z.literal('')),
   invoice_notes: z.string().max(1000).optional().or(z.literal('')),
   invoice_terms: z.string().max(1000).optional().or(z.literal('')),
   tax_rate: z.coerce.number().min(0, 'Tax rate must be at least 0').max(100, 'Tax rate cannot exceed 100'),
@@ -91,6 +96,11 @@ export default function Settings() {
           email: data.email || '',
           website: data.website || '',
           address: data.address || '',
+          bank_name: data.bank_name || '',
+          account_holder_name: data.account_holder_name || '',
+          account_number: data.account_number || '',
+          iban: data.iban || '',
+          swift_code: data.swift_code || '',
           invoice_notes: data.invoice_notes || '',
           invoice_terms: data.invoice_terms || '',
           tax_rate: data.tax_rate || 5,
@@ -181,6 +191,11 @@ export default function Settings() {
         email: data.email || null,
         website: data.website || null,
         address: data.address || null,
+        bank_name: data.bank_name || null,
+        account_holder_name: data.account_holder_name || null,
+        account_number: data.account_number || null,
+        iban: data.iban || null,
+        swift_code: data.swift_code || null,
         logo_url: logoUrl || null,
         invoice_notes: data.invoice_notes || null,
         invoice_terms: data.invoice_terms || null,
@@ -422,6 +437,60 @@ export default function Settings() {
               </CardContent>
             </Card>
 
+            {/* Bank Account Details Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Bank Account Details</CardTitle>
+                <CardDescription>
+                  These details will appear on invoices to help clients make payments
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_name">Bank Name</Label>
+                    <Input
+                      id="bank_name"
+                      {...register('bank_name')}
+                      placeholder="e.g. Emirates NBD"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                    <Input
+                      id="account_holder_name"
+                      {...register('account_holder_name')}
+                      placeholder="e.g. Printava FZ LLC"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="account_number">Account Number</Label>
+                    <Input
+                      id="account_number"
+                      {...register('account_number')}
+                      placeholder="Enter account number"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="iban">IBAN</Label>
+                    <Input
+                      id="iban"
+                      {...register('iban')}
+                      placeholder="AE..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="swift_code">Swift Code</Label>
+                    <Input
+                      id="swift_code"
+                      {...register('swift_code')}
+                      placeholder="Enter Swift/BIC code"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Invoice Customization Section */}
             <Card>
               <CardHeader>
@@ -436,8 +505,8 @@ export default function Settings() {
                   <Textarea
                     id="invoice_notes"
                     {...register('invoice_notes')}
-                    placeholder="Thank you for your business."
-                    rows={3}
+                    placeholder={`Terms Of Payment: 50% Payment in Advance, 50% Payment at the Time of Delivery.\nDelivery Time: 20 working days.\nLooking forward for your business.`}
+                    rows={4}
                   />
                   {errors.invoice_notes && (
                     <p className="text-sm text-destructive">{errors.invoice_notes.message}</p>
@@ -449,8 +518,8 @@ export default function Settings() {
                   <Textarea
                     id="invoice_terms"
                     {...register('invoice_terms')}
-                    placeholder="1. Goods once sold cannot be returned.&#10;2. Payment to be made by Cheque/Cash.&#10;3. All disputes are subject to UAE jurisdiction."
-                    rows={5}
+                    placeholder={`- Production starts only after: Advance payment is received and Final designs are submitted and approved in writing.\n- Once production has started, the order cannot be canceled or returned under any circumstances.\n- A color variation of up to 5% may occur due to differences in screen displays and the nature of printed materials. This is not considered a defect.\n- Client is fully responsible for verifying all design content (text, layout, images, etc.) before final approval. Printava is not liable for errors once the design is approved.\n- Printava is not responsible for delays caused by external factors such as courier issues, public holidays, or raw material shortages.\n- Completed orders must be collected within 7 days of notification. Unclaimed orders may incur storage fees or be discarded.\n- Delays may occur due to unexpected technical issues. Printava will inform the client promptly, but is not liable for such delays.`}
+                    rows={8}
                   />
                   {errors.invoice_terms && (
                     <p className="text-sm text-destructive">{errors.invoice_terms.message}</p>

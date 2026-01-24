@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -30,10 +31,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Pencil, Search, History, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Pencil, Search, History, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { usePricingTiers } from "@/hooks/usePricingTiers";
+import { useCurrencies } from "@/hooks/useCurrencies";
 import { OrdersList } from "@/components/OrdersList";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -50,27 +68,61 @@ interface Client {
   city: string | null;
   notes: string | null;
   default_pricing_tier_id: string | null;
+  client_type: 'business' | 'individual' | null;
+  salutation: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  billing_address_line1: string | null;
+  billing_city: string | null;
+  billing_state: string | null;
+  billing_zip: string | null;
+  billing_country: string | null;
+  shipping_address_line1: string | null;
+  shipping_city: string | null;
+  shipping_state: string | null;
+  shipping_zip: string | null;
+  shipping_country: string | null;
+  payment_terms: string | null;
+  currency_id: string | null;
 }
 
 const Clients = () => {
   const { companyId, role } = useUserRole();
   const { data: pricingTiers } = usePricingTiers();
+  const { data: currencies } = useCurrencies();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [viewingClientOrders, setViewingClientOrders] = useState<Client | null>(null);
+  const [copyBilling, setCopyBilling] = useState(false);
+  const [openPaymentTerms, setOpenPaymentTerms] = useState(false);
+  const [paymentTermsSearch, setPaymentTermsSearch] = useState("");
+  const paymentTermsOptions = ["Due on Receipt", "Net 15", "Net 30", "Net 45", "Cash"];
   const [formData, setFormData] = useState({
-    full_name: "",
+    salutation: "",
+    first_name: "",
+    last_name: "",
+    client_type: "business" as "business" | "individual",
     business_name: "",
     email: "",
     phone: "",
     secondary_phone: "",
+    billing_address_line1: "",
+    billing_city: "",
+    billing_state: "",
+    billing_zip: "",
+    billing_country: "UAE",
+    shipping_address_line1: "",
+    shipping_city: "",
+    shipping_state: "",
+    shipping_zip: "",
+    shipping_country: "UAE",
     tax_number: "",
-    address: "",
-    city: "",
-    notes: "",
+    currency_id: "",
+    payment_terms: "Due on Receipt",
     default_pricing_tier_id: "",
+    notes: "",
   });
 
   // Pagination state
@@ -123,7 +175,7 @@ const Clients = () => {
 
       if (error) throw error;
       return {
-        clients: (data || []) as Client[],
+        clients: (data || []) as unknown as Client[],
         totalCount: count || 0,
       };
     },
@@ -153,10 +205,40 @@ const Clients = () => {
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => {
+      const newData = { ...prev, [name]: value };
+      
+      // If copyBilling is true and we're editing a billing field, update shipping field
+      if (copyBilling && name.startsWith("billing_")) {
+        const shippingField = name.replace("billing_", "shipping_");
+        // @ts-ignore
+        newData[shippingField] = value;
+      }
+      
+      return newData;
+    });
+  };
+  
+  const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
+  };
+
+  const handleCopyBillingChange = (checked: boolean) => {
+    setCopyBilling(checked);
+    if (checked) {
+      setFormData((prev) => ({
+        ...prev,
+        shipping_address_line1: prev.billing_address_line1,
+        shipping_city: prev.billing_city,
+        shipping_state: prev.billing_state,
+        shipping_zip: prev.billing_zip,
+        shipping_country: prev.billing_country,
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -168,18 +250,45 @@ const Clients = () => {
     }
 
     try {
+      // Construct full_name
+      const full_name = `${formData.first_name} ${formData.last_name}`.trim();
+      
       const clientData = {
-        ...formData,
         company_id: companyId,
-        business_name: formData.business_name || null,
+        full_name: full_name || formData.business_name || "Unknown Client",
+        
+        client_type: formData.client_type,
+        salutation: formData.salutation || null,
+        first_name: formData.first_name || null,
+        last_name: formData.last_name || null,
+        business_name: formData.client_type === 'business' ? (formData.business_name || null) : null,
+        
         email: formData.email || null,
         phone: formData.phone || null,
         secondary_phone: formData.secondary_phone || null,
+        
+        // Address mapping
+        billing_address_line1: formData.billing_address_line1 || null,
+        billing_city: formData.billing_city || null,
+        billing_state: formData.billing_state || null,
+        billing_zip: formData.billing_zip || null,
+        billing_country: formData.billing_country || null,
+        
+        shipping_address_line1: formData.shipping_address_line1 || null,
+        shipping_city: formData.shipping_city || null,
+        shipping_state: formData.shipping_state || null,
+        shipping_zip: formData.shipping_zip || null,
+        shipping_country: formData.shipping_country || null,
+
+        // Legacy mapping
+        address: formData.billing_address_line1 || null,
+        city: formData.billing_city || null,
+        
         tax_number: formData.tax_number || null,
-        address: formData.address || null,
-        city: formData.city || null,
-        notes: formData.notes || null,
+        currency_id: formData.currency_id || null,
+        payment_terms: formData.payment_terms || null,
         default_pricing_tier_id: formData.default_pricing_tier_id || null,
+        notes: formData.notes || null,
       };
 
       if (editingClient) {
@@ -210,34 +319,77 @@ const Clients = () => {
 
   const resetForm = () => {
     setFormData({
-      full_name: "",
+      salutation: "",
+      first_name: "",
+      last_name: "",
+      client_type: "business",
       business_name: "",
       email: "",
       phone: "",
       secondary_phone: "",
+      billing_address_line1: "",
+      billing_city: "",
+      billing_state: "",
+      billing_zip: "",
+      billing_country: "UAE",
+      shipping_address_line1: "",
+      shipping_city: "",
+      shipping_state: "",
+      shipping_zip: "",
+      shipping_country: "UAE",
       tax_number: "",
-      address: "",
-      city: "",
-      notes: "",
+      currency_id: "",
+      payment_terms: "Due on Receipt",
       default_pricing_tier_id: "",
+      notes: "",
     });
+    setCopyBilling(false);
     setEditingClient(null);
+    setPaymentTermsSearch("");
   };
 
   const handleEdit = (client: Client) => {
     setEditingClient(client);
+    
+    // Logic for splitting name if first/last not present
+    let firstName = client.first_name || "";
+    let lastName = client.last_name || "";
+    
+    if (!firstName && !lastName && client.full_name) {
+      const parts = client.full_name.split(" ");
+      if (parts.length > 0) {
+        firstName = parts[0];
+        lastName = parts.slice(1).join(" ");
+      }
+    }
+    
     setFormData({
-      full_name: client.full_name,
+      salutation: client.salutation || "",
+      first_name: firstName,
+      last_name: lastName,
+      client_type: (client.client_type as "business" | "individual") || "business",
       business_name: client.business_name || "",
       email: client.email || "",
       phone: client.phone || "",
       secondary_phone: client.secondary_phone || "",
+      billing_address_line1: client.billing_address_line1 || client.address || "",
+      billing_city: client.billing_city || client.city || "",
+      billing_state: client.billing_state || "",
+      billing_zip: client.billing_zip || "",
+      billing_country: client.billing_country || "UAE",
+      shipping_address_line1: client.shipping_address_line1 || "",
+      shipping_city: client.shipping_city || "",
+      shipping_state: client.shipping_state || "",
+      shipping_zip: client.shipping_zip || "",
+      shipping_country: client.shipping_country || "UAE",
       tax_number: client.tax_number || "",
-      address: client.address || "",
-      city: client.city || "",
-      notes: client.notes || "",
+      currency_id: client.currency_id || "",
+      payment_terms: client.payment_terms || "Due on Receipt",
       default_pricing_tier_id: client.default_pricing_tier_id || "",
+      notes: client.notes || "",
     });
+    setCopyBilling(false);
+    setPaymentTermsSearch("");
     setIsDialogOpen(true);
   };
 
@@ -276,134 +428,399 @@ const Clients = () => {
               Add Client
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingClient ? "Edit Client" : "Add New Client"}</DialogTitle>
               <DialogDescription>
                 {editingClient ? "Update client information" : "Enter client details below"}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              
+              {/* Header Section: Client Type & Name */}
+              <div className="space-y-4 border-b pb-4">
                 <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name *</Label>
-                  <Input
-                    id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="business_name">Business Name</Label>
-                  <Input
-                    id="business_name"
-                    name="business_name"
-                    value={formData.business_name}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="secondary_phone">Secondary Phone</Label>
-                  <Input
-                    id="secondary_phone"
-                    name="secondary_phone"
-                    type="tel"
-                    value={formData.secondary_phone}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tax_number">Tax ID / VAT Number</Label>
-                  <Input
-                    id="tax_number"
-                    name="tax_number"
-                    value={formData.tax_number}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="default_pricing_tier_id">Default Pricing Tier</Label>
-                  <Select
-                    value={formData.default_pricing_tier_id}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({ ...prev, default_pricing_tier_id: value }))
-                    }
+                  <Label>Client Type</Label>
+                  <RadioGroup 
+                    value={formData.client_type} 
+                    onValueChange={(val: "business" | "individual") => handleSelectChange("client_type", val)}
+                    className="flex flex-row space-x-4"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="None (Optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(pricingTiers || []).map((tier) => (
-                        <SelectItem key={tier.id} value={tier.id}>
-                          {tier.label || tier.name} (+{tier.markup_percent}%)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="business" id="type-business" />
+                      <Label htmlFor="type-business">Business</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="individual" id="type-individual" />
+                      <Label htmlFor="type-individual">Individual</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-12">
+                  <div className="sm:col-span-2">
+                    <Label htmlFor="salutation">Salutation</Label>
+                    <Select
+                      value={formData.salutation}
+                      onValueChange={(val) => handleSelectChange("salutation", val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Mr/Ms" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Mr.">Mr.</SelectItem>
+                        <SelectItem value="Mrs.">Mrs.</SelectItem>
+                        <SelectItem value="Ms.">Ms.</SelectItem>
+                        <SelectItem value="Dr.">Dr.</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="sm:col-span-5">
+                    <Label htmlFor="first_name">First Name *</Label>
+                    <Input
+                      id="first_name"
+                      name="first_name"
+                      value={formData.first_name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="sm:col-span-5">
+                    <Label htmlFor="last_name">Last Name *</Label>
+                    <Input
+                      id="last_name"
+                      name="last_name"
+                      value={formData.last_name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea
-                  id="address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  rows={2}
-                />
-              </div>
+              {/* Tabs Section */}
+              <Tabs defaultValue="general" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="general">General Info</TabsTrigger>
+                  <TabsTrigger value="address">Address</TabsTrigger>
+                  <TabsTrigger value="financial">Financial</TabsTrigger>
+                </TabsList>
+                
+                {/* Tab 1: General Info */}
+                <TabsContent value="general" className="space-y-4 py-4">
+                  {formData.client_type === 'business' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="business_name">Business Name</Label>
+                      <Input
+                        id="business_name"
+                        name="business_name"
+                        value={formData.business_name}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="secondary_phone">Secondary Phone</Label>
+                    <Input
+                      id="secondary_phone"
+                      name="secondary_phone"
+                      type="tel"
+                      value={formData.secondary_phone}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </TabsContent>
+                
+                {/* Tab 2: Address Details */}
+                <TabsContent value="address" className="space-y-4 py-4">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {/* Left Column: Billing Address */}
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-sm text-muted-foreground border-b pb-2">Billing Address</h3>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="billing_address_line1">Address Line 1</Label>
+                        <Input
+                          id="billing_address_line1"
+                          name="billing_address_line1"
+                          value={formData.billing_address_line1}
+                          onChange={handleChange}
+                        />
+                      </div>
+                      
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="billing_city">City</Label>
+                          <Input
+                            id="billing_city"
+                            name="billing_city"
+                            value={formData.billing_city}
+                            onChange={handleChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="billing_state">State</Label>
+                          <Input
+                            id="billing_state"
+                            name="billing_state"
+                            value={formData.billing_state}
+                            onChange={handleChange}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="billing_zip">Zip Code</Label>
+                          <Input
+                            id="billing_zip"
+                            name="billing_zip"
+                            value={formData.billing_zip}
+                            onChange={handleChange}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="billing_country">Country</Label>
+                          <Input
+                            id="billing_country"
+                            name="billing_country"
+                            value={formData.billing_country}
+                            onChange={handleChange}
+                          />
+                        </div>
+                      </div>
+                    </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleChange}
-                  rows={3}
-                />
-              </div>
+                    {/* Right Column: Shipping Address */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <h3 className="font-semibold text-sm text-muted-foreground">Shipping Address</h3>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id="copy_billing" 
+                            checked={copyBilling}
+                            onCheckedChange={handleCopyBillingChange}
+                          />
+                          <Label 
+                            htmlFor="copy_billing" 
+                            className="text-xs font-normal cursor-pointer"
+                          >
+                            Same as Billing
+                          </Label>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="shipping_address_line1">Address Line 1</Label>
+                        <Input
+                          id="shipping_address_line1"
+                          name="shipping_address_line1"
+                          value={formData.shipping_address_line1}
+                          onChange={handleChange}
+                          disabled={copyBilling}
+                        />
+                      </div>
+                      
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="shipping_city">City</Label>
+                          <Input
+                            id="shipping_city"
+                            name="shipping_city"
+                            value={formData.shipping_city}
+                            onChange={handleChange}
+                            disabled={copyBilling}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="shipping_state">State</Label>
+                          <Input
+                            id="shipping_state"
+                            name="shipping_state"
+                            value={formData.shipping_state}
+                            onChange={handleChange}
+                            disabled={copyBilling}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="shipping_zip">Zip Code</Label>
+                          <Input
+                            id="shipping_zip"
+                            name="shipping_zip"
+                            value={formData.shipping_zip}
+                            onChange={handleChange}
+                            disabled={copyBilling}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="shipping_country">Country</Label>
+                          <Input
+                            id="shipping_country"
+                            name="shipping_country"
+                            value={formData.shipping_country}
+                            onChange={handleChange}
+                            disabled={copyBilling}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                {/* Tab 3: Financial & Settings */}
+                <TabsContent value="financial" className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tax_number">Tax ID / TRN</Label>
+                    <Input
+                      id="tax_number"
+                      name="tax_number"
+                      value={formData.tax_number}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="currency_id">Currency</Label>
+                      <Select
+                        value={formData.currency_id}
+                        onValueChange={(val) => handleSelectChange("currency_id", val)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Currency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(currencies || []).map((curr) => (
+                            <SelectItem key={curr.id} value={curr.id}>
+                              {curr.code} - {curr.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2 flex flex-col">
+                      <Label htmlFor="payment_terms" className="mb-1">Payment Terms</Label>
+                      <Popover open={openPaymentTerms} onOpenChange={setOpenPaymentTerms}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openPaymentTerms}
+                            className="w-full justify-between font-normal"
+                          >
+                            {formData.payment_terms || "Select terms"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-0" align="start">
+                          <Command>
+                            <CommandInput 
+                              placeholder="Search or enter custom terms..." 
+                              value={paymentTermsSearch}
+                              onValueChange={setPaymentTermsSearch}
+                            />
+                            <CommandList>
+                              <CommandEmpty>No terms found.</CommandEmpty>
+                              <CommandGroup>
+                                {paymentTermsOptions.map((term) => (
+                                  <CommandItem
+                                    key={term}
+                                    value={term}
+                                    onSelect={() => {
+                                      handleSelectChange("payment_terms", term);
+                                      setOpenPaymentTerms(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        formData.payment_terms === term ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {term}
+                                  </CommandItem>
+                                ))}
+                                {paymentTermsSearch && !paymentTermsOptions.some(opt => opt.toLowerCase() === paymentTermsSearch.toLowerCase()) && (
+                                  <CommandItem
+                                    value={paymentTermsSearch}
+                                    onSelect={() => {
+                                      handleSelectChange("payment_terms", paymentTermsSearch);
+                                      setOpenPaymentTerms(false);
+                                    }}
+                                  >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Create "{paymentTermsSearch}"
+                                  </CommandItem>
+                                )}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="default_pricing_tier_id">Default Pricing Tier</Label>
+                    <Select
+                      value={formData.default_pricing_tier_id}
+                      onValueChange={(value) =>
+                        handleSelectChange("default_pricing_tier_id", value)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="None (Optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(pricingTiers || []).map((tier) => (
+                          <SelectItem key={tier.id} value={tier.id}>
+                            {tier.label || tier.name} (+{tier.markup_percent}%)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleChange}
+                      rows={3}
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
