@@ -31,6 +31,7 @@ type QuotationItemForTemplate = {
   product: {
     name_en: string;
     name_ar: string;
+    sku: string;
   };
 };
 
@@ -229,8 +230,9 @@ export const QuotationTemplate = React.forwardRef<
 
       {/* ITEMS TABLE */}
       <div className="mb-8">
-        <div className="grid grid-cols-[40px_3fr_80px_100px_80px_120px] gap-4 py-3 border-b border-slate-200 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+        <div className="grid grid-cols-[40px_100px_3fr_80px_100px_80px_120px] gap-4 py-3 border-b border-slate-200 text-[10px] uppercase tracking-wider font-bold text-slate-500">
           <div className="text-left">#</div>
+          <div className="text-left">SKU</div>
           <div className="text-left">Item & Description</div>
           <div className="text-right">Quantity</div>
           <div className="text-right">Rate</div>
@@ -241,10 +243,13 @@ export const QuotationTemplate = React.forwardRef<
           {quotation.quotation_items.map((item, index) => (
             <div
               key={item.id}
-              className="grid grid-cols-[40px_3fr_80px_100px_80px_120px] gap-4 py-4 border-b border-slate-100 text-xs items-center"
+              className="grid grid-cols-[40px_100px_3fr_80px_100px_80px_120px] gap-4 py-4 border-b border-slate-100 text-xs items-center"
             >
               <div className="text-left text-slate-400 font-medium">
                 {index + 1}
+              </div>
+              <div className="text-left text-slate-600 font-medium">
+                {item.product.sku || "-"}
               </div>
               <div className="text-left flex flex-col">
                 <span className="font-semibold text-slate-900">
