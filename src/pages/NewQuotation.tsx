@@ -68,6 +68,7 @@ interface QuotationItem {
   unit_price: number;
   item_total: number;
   description?: string;
+  isManualPrice?: boolean;
 }
 
 interface Client {
@@ -245,6 +246,13 @@ const NewQuotation = () => {
       const product = products.find((p) => p.id === item.product_id);
       if (!product) return item;
 
+      if (item.isManualPrice) {
+        return {
+          ...item,
+          item_total: item.unit_price * item.quantity,
+        };
+      }
+
       const basePrice = product.unit_price;
       const markup = selectedTier ? selectedTier.markup_percent / 100 : 0;
       const basePriceWithMarkup = basePrice + basePrice * markup;
@@ -311,6 +319,7 @@ const NewQuotation = () => {
         unit_price: 0,
         item_total: 0,
         description: "",
+        isManualPrice: false,
       },
     ]);
   };
@@ -339,6 +348,7 @@ const NewQuotation = () => {
       unit_price: unitPrice,
       item_total: unitPrice * quantity,
       description: existing?.description || "",
+      isManualPrice: false,
     };
     setQuotationItems(updatedItems);
     setOpenProductPopover(null);
@@ -355,12 +365,34 @@ const NewQuotation = () => {
     setQuotationItems(updatedItems);
   };
 
+  const updateUnitPrice = (index: number, value: string) => {
+    const parsed = parseFloat(value);
+    const unitPrice = isNaN(parsed) ? 0 : parsed;
+
+    const updatedItems = [...quotationItems];
+    const item = updatedItems[index];
+    if (!item) return;
+
+    item.unit_price = unitPrice;
+    item.item_total = unitPrice * item.quantity;
+    item.isManualPrice = true;
+
+    setQuotationItems(updatedItems);
+  };
+
   const recalculatePrices = (tier: any, exchangeRate: number = currentExchangeRate) => {
     if (quotationItems.length === 0) return;
 
     const updatedItems = quotationItems.map((item) => {
       const product = products.find((p) => p.id === item.product_id);
       if (!product) return item;
+
+      if (item.isManualPrice) {
+        return {
+          ...item,
+          item_total: item.unit_price * item.quantity,
+        };
+      }
 
       const basePrice = product.unit_price; // Price in base currency
       const markup = tier ? tier.markup_percent / 100 : 0;
@@ -932,13 +964,10 @@ const NewQuotation = () => {
                     <div className="space-y-2">
                       <Label>Unit Price</Label>
                       <Input
-                        type="text"
-                        value={formatCurrency(
-                          item.unit_price,
-                          selectedCurrencyCode
-                        )}
-                        readOnly
-                        className="bg-muted"
+                        type="number"
+                        step="0.01"
+                        value={item.unit_price}
+                        onChange={(e) => updateUnitPrice(index, e.target.value)}
                       />
                     </div>
 
