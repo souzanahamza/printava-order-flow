@@ -20,6 +20,7 @@ type QuotationItemWithProduct = {
   quantity: number;
   unit_price: number;
   item_total: number;
+  description?: string | null;
   product: {
     name_en: string;
     name_ar: string;
@@ -86,6 +87,7 @@ export function QuotationDetails({ quotationId }: QuotationDetailsProps) {
             quantity,
             unit_price,
             item_total,
+            description,
             product:products(
               name_en,
               name_ar,
@@ -249,16 +251,21 @@ export function QuotationDetails({ quotationId }: QuotationDetailsProps) {
                   <div className="text-xs text-muted-foreground">
                     {index + 1}
                   </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {item.product?.name_en}
+                <div className="flex flex-col">
+                  <span className="font-medium">
+                    {item.product?.name_en}
+                  </span>
+                  {item.product?.name_ar && (
+                    <span className="text-xs text-muted-foreground">
+                      {item.product.name_ar}
                     </span>
-                    {item.product?.name_ar && (
-                      <span className="text-xs text-muted-foreground">
-                        {item.product.name_ar}
-                      </span>
-                    )}
-                  </div>
+                  )}
+                  {item.description && (
+                    <span className="text-xs text-muted-foreground mt-0.5">
+                      {item.description}
+                    </span>
+                  )}
+                </div>
                   <div className="text-right">{item.quantity}</div>
                   <div className="text-right">
                     {formatCurrency(item.unit_price, displayCurrency)}

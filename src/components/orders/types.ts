@@ -28,6 +28,7 @@ export type OrderDetail = {
         quantity: number;
         unit_price: number;
         item_total: number;
+        description?: string | null;
         product: {
             name_en: string;
             name_ar: string;

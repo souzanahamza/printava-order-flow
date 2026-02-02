@@ -38,7 +38,7 @@ export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTable
                         </thead>
                         <tbody>
                             {items.map((item) => (
-                                <tr key={item.id} className="border-t">
+                                <tr key={item.id} className="border-t align-top">
                                     <td className="p-4">
                                         <div className="flex items-center gap-3">
                                             {item.product.image_url ? (
@@ -55,6 +55,11 @@ export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTable
                                             <div>
                                                 <div className="font-medium">{item.product.name_en}</div>
                                                 <div className="text-sm text-muted-foreground">{item.product.name_ar}</div>
+                                                {item.description && (
+                                                    <div className="mt-1 text-xs text-muted-foreground">
+                                                        {item.description}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </td>

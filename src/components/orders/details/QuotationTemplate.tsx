@@ -28,6 +28,7 @@ type QuotationItemForTemplate = {
   quantity: number;
   unit_price: number;
   item_total: number;
+  description?: string | null;
   product: {
     name_en: string;
     name_ar: string;
@@ -258,6 +259,11 @@ export const QuotationTemplate = React.forwardRef<
                 {item.product.name_ar && (
                   <span className="text-slate-400 text-[10px] mt-0.5">
                     {item.product.name_ar}
+                  </span>
+                )}
+                {item.description && (
+                  <span className="text-[10px] text-slate-500 italic mt-0.5">
+                    {item.description}
                   </span>
                 )}
               </div>

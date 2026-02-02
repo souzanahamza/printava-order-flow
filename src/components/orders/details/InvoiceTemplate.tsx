@@ -200,7 +200,16 @@ export const InvoiceTemplate = React.forwardRef<HTMLDivElement, InvoiceTemplateP
 
                                 <div className="text-left flex flex-col">
                                     <span className="font-semibold text-slate-900">{item.product.name_en}</span>
-                                    {item.product.name_ar && <span className="text-slate-400 text-[10px] mt-0.5">{item.product.name_ar}</span>}
+                                    {item.product.name_ar && (
+                                        <span className="text-slate-400 text-[10px] mt-0.5">
+                                            {item.product.name_ar}
+                                        </span>
+                                    )}
+                                    {item.description && (
+                                        <span className="text-[10px] text-slate-500 italic mt-0.5">
+                                            {item.description}
+                                        </span>
+                                    )}
                                 </div>
 
                                 <div className="text-right text-slate-900">{item.quantity}</div>

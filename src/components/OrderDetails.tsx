@@ -72,6 +72,7 @@ export function OrderDetails({
             quantity,
             unit_price,
             item_total,
+            description,
             product:products(
               name_en,
               name_ar,

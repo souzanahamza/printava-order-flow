@@ -69,6 +69,7 @@ interface OrderItem {
   quantity: number;
   unit_price: number;
   item_total: number;
+  description?: string;
 }
 
 interface Client {
@@ -211,6 +212,7 @@ const NewOrder = () => {
               quantity,
               unit_price,
               item_total,
+              description,
               product:products(
                 name_en,
                 name_ar,
@@ -290,6 +292,7 @@ const NewOrder = () => {
             quantity: item.quantity,
             unit_price: item.unit_price,
             item_total: item.item_total,
+            description: item.description || "",
           }));
           setOrderItems(mappedItems);
         }
@@ -321,6 +324,7 @@ const NewOrder = () => {
               quantity,
               unit_price,
               item_total,
+              description,
               product:products(
                 name_en,
                 name_ar,
@@ -393,6 +397,7 @@ const NewOrder = () => {
             quantity: item.quantity,
             unit_price: item.unit_price,
             item_total: item.item_total,
+            description: item.description || "",
           }));
           setOrderItems(mappedItems);
         }
@@ -552,6 +557,7 @@ const NewOrder = () => {
         quantity: 1,
         unit_price: 0,
         item_total: 0,
+        description: "",
       },
     ]);
   };
@@ -571,6 +577,7 @@ const NewOrder = () => {
     const quantity = orderItems[index]?.quantity || 1;
 
     const updatedItems = [...orderItems];
+    const existing = updatedItems[index];
     updatedItems[index] = {
       product_id: product.id,
       product_name: `${product.name_en} (${product.name_ar})`,
@@ -579,6 +586,7 @@ const NewOrder = () => {
       quantity,
       unit_price: unitPrice,
       item_total: unitPrice * quantity,
+      description: existing?.description || "",
     };
     setOrderItems(updatedItems);
     setOpenProductPopover(null);
@@ -588,8 +596,10 @@ const NewOrder = () => {
     if (quantity < 1) return;
 
     const updatedItems = [...orderItems];
-    updatedItems[index].quantity = quantity;
-    updatedItems[index].item_total = updatedItems[index].unit_price * quantity;
+    const item = updatedItems[index];
+    if (!item) return;
+    item.quantity = quantity;
+    item.item_total = item.unit_price * quantity;
     setOrderItems(updatedItems);
   };
 
@@ -774,6 +784,7 @@ const NewOrder = () => {
         quantity: item.quantity,
         unit_price: item.unit_price,
         item_total: item.item_total,
+        description: item.description || null,
         company_id: companyId,
       }));
 
@@ -1533,6 +1544,28 @@ const NewOrder = () => {
                         </Button>
                       </div>
                     </div>
+                  </div>
+                  {/* Item Description */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`order-item-description-${index}`}>
+                      Item Description (Optional)
+                    </Label>
+                    <Textarea
+                      id={`order-item-description-${index}`}
+                      value={item.description || ""}
+                      onChange={(e) => {
+                        const updated = [...orderItems];
+                        const current = updated[index];
+                        if (!current) return;
+                        updated[index] = {
+                          ...current,
+                          description: e.target.value,
+                        };
+                        setOrderItems(updated);
+                      }}
+                      placeholder="E.g. Matte finish, Size A4, double-sided printing"
+                      rows={2}
+                    />
                   </div>
                 </div>
               ))
