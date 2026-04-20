@@ -50,7 +50,7 @@ import {
     Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useOrderStatuses } from "@/hooks/useOrderStatuses";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

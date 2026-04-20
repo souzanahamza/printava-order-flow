@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -58,7 +59,13 @@ interface UploadFileParams {
     uploaderId: string;
     orderIdOverride?: string;
     clientNameOverride?: string;
+    /** When set, attachment is scoped to this order line item (proofs / print files per product). */
+    orderItemId?: string | null;
 }
+
+export type UploadFilesParams = Omit<UploadFileParams, "file"> & {
+    files: File[];
+};
 
 
 /**
@@ -73,7 +80,14 @@ export function useOrderFileUpload({
     const queryClient = useQueryClient();
 
     const uploadFileMutation = useMutation({
-        mutationFn: async ({ file, fileType, uploaderId, orderIdOverride, clientNameOverride }: UploadFileParams) => {
+        mutationFn: async ({
+            file,
+            fileType,
+            uploaderId,
+            orderIdOverride,
+            clientNameOverride,
+            orderItemId,
+        }: UploadFileParams) => {
             if (!file || !companyId) {
                 throw new Error("Missing required data for file upload");
             }
@@ -104,17 +118,16 @@ export function useOrderFileUpload({
                 .getPublicUrl(filePath);
 
             // Insert record into order_attachments table with smart file name
-            const { error: attachmentError } = await supabase
-                .from("order_attachments")
-                .insert({
-                    order_id: resolvedOrderId,
-                    company_id: companyId,
-                    file_url: publicUrl,
-                    file_name: smartFileName, // Use smart name instead of original
-                    file_type: fileType,
-                    file_size: file.size,
-                    uploader_id: uploaderId
-                });
+            const { error: attachmentError } = await supabase.from("order_attachments").insert({
+                order_id: resolvedOrderId,
+                company_id: companyId,
+                file_url: publicUrl,
+                file_name: smartFileName, // Use smart name instead of original
+                file_type: fileType,
+                file_size: file.size,
+                uploader_id: uploaderId,
+                ...(orderItemId ? { order_item_id: orderItemId } : {}),
+            });
 
             if (attachmentError) throw attachmentError;
 
@@ -127,17 +140,41 @@ export function useOrderFileUpload({
             queryClient.invalidateQueries({ queryKey: ["order-attachments", resolvedId] });
             queryClient.invalidateQueries({ queryKey: ["order-details", resolvedId] });
             queryClient.invalidateQueries({ queryKey: ["orders"] });
+            queryClient.invalidateQueries({ queryKey: ["design-approvals-mockups"] });
+            queryClient.invalidateQueries({ queryKey: ["order-design-mockups", resolvedId] });
+            queryClient.invalidateQueries({ queryKey: ["designer-order-attachments"] });
+            queryClient.invalidateQueries({ queryKey: ["designer-order-attachments-batch"] });
         },
         onError: (error: Error) => {
             toast.error(`Upload failed: ${error.message}`);
         }
     });
 
+    const uploadFilesAsync = useCallback(
+        async (params: UploadFilesParams) => {
+            const { files, ...rest } = params;
+            return Promise.all(files.map((file) => uploadFileMutation.mutateAsync({ ...rest, file })));
+        },
+        [uploadFileMutation]
+    );
+
+    const uploadFiles = useCallback(
+        (params: UploadFilesParams) => {
+            const { files, ...rest } = params;
+            for (const file of files) {
+                uploadFileMutation.mutate({ ...rest, file });
+            }
+        },
+        [uploadFileMutation]
+    );
+
     return {
         uploadFile: uploadFileMutation.mutate,
         uploadFileAsync: uploadFileMutation.mutateAsync,
+        uploadFiles,
+        uploadFilesAsync,
         isUploading: uploadFileMutation.isPending,
         error: uploadFileMutation.error,
-        reset: uploadFileMutation.reset
+        reset: uploadFileMutation.reset,
     };
 }

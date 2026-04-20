@@ -3,29 +3,30 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Layout } from "@/components/Layout";
+import { Layout } from "@/components/layout/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { RoleBasedRoute } from "@/components/RoleBasedRoute";
+import { ProtectedRoute } from "@/components/shared/ProtectedRoute";
+import { RoleBasedRoute } from "@/components/shared/RoleBasedRoute";
 import { Navigate } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
-import Dashboard from "./pages/Dashboard";
-import Orders from "./pages/Orders";
-import NewOrder from "./pages/NewOrder";
-import Quotations from "./pages/Quotations";
-import NewQuotation from "./pages/NewQuotation";
-import Clients from "./pages/Clients";
-import Products from "./pages/Products";
-import DesignApprovals from "./pages/DesignApprovals";
-import Production from "./pages/Production";
-import Shipping from "./pages/Shipping";
-import Login from "./pages/Login";
-import SignUp from "./pages/SignUp";
-import Team from "./pages/Team";
-import StatusSettings from "./pages/StatusSettings";
-import PricingSettings from "./pages/PricingSettings";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
+import Dashboard from "@/features/dashboard/pages/Dashboard";
+import Orders from "@/features/orders/pages/OrdersPage";
+import NewOrder from "@/features/orders/pages/NewOrder";
+import Quotations from "@/features/orders/pages/Quotations";
+import NewQuotation from "@/features/orders/pages/NewQuotation";
+import Clients from "@/features/clients/pages/Clients";
+import Products from "@/features/products/pages/Products";
+import DesignApprovals from "@/features/designer/pages/DesignApprovals";
+import Production from "@/features/production/pages/Production";
+import Shipping from "@/features/settings/pages/Shipping";
+import Login from "@/features/auth/pages/Login";
+import SignUp from "@/features/auth/pages/SignUp";
+import Team from "@/features/settings/pages/Team";
+import StatusSettings from "@/features/settings/pages/StatusSettings";
+import PricingSettings from "@/features/products/pages/PricingSettings";
+import Settings from "@/features/settings/pages/Settings";
+import NotFound from "@/features/auth/pages/NotFound";
+import AdminDesignTasks from "@/features/designer/pages/AdminDesignTasks";
 
 const queryClient = new QueryClient();
 
@@ -164,6 +165,19 @@ const App = () => (
             />
 
             {/* Admin-only routes */}
+            <Route
+              path="/admin/design-tasks"
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={["admin"]}>
+                    <Layout>
+                      <AdminDesignTasks />
+                    </Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              }
+            />
+
             <Route
               path="/team"
               element={

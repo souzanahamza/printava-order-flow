@@ -49,18 +49,11 @@ export function useUpdateOrderStatus() {
 
 export function useConfirmPayment() {
   const queryClient = useQueryClient();
-  const { data: statuses } = useOrderStatuses();
 
   return useMutation({
     mutationFn: async ({ orderId, paymentMethod, paymentStatus, paidAmount }: ConfirmPaymentParams) => {
       if (!paymentMethod) {
         throw new Error("Please select a payment method");
-      }
-
-      const readyForProductionStatus = statuses?.find(s => s.name === "Ready for Production");
-      
-      if (!readyForProductionStatus) {
-        throw new Error("Ready for Production status not found");
       }
 
       const { error } = await supabase
@@ -69,7 +62,6 @@ export function useConfirmPayment() {
           payment_method: paymentMethod,
           payment_status: paymentStatus,
           paid_amount: paidAmount,
-          status: readyForProductionStatus.name,
         })
         .eq("id", orderId);
 
@@ -78,7 +70,7 @@ export function useConfirmPayment() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["order-details", variables.orderId] });
       queryClient.invalidateQueries({ queryKey: ["orders"] });
-      toast.success("Order queued for production");
+      toast.success("Payment recorded");
       
       if (variables.onSuccess) {
         variables.onSuccess();
