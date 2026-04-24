@@ -6,8 +6,8 @@ import { useUserRole } from "@/hooks/useUserRole";
 
 const OrdersPage = () => {
   const navigate = useNavigate();
-  const { role, loading } = useUserRole();
-  const canCreateOrder = !loading && (role === 'admin' || role === 'sales');
+  const { loading, isAdmin, isSales } = useUserRole();
+  const canCreateOrder = !loading && (isAdmin || isSales);
 
   return (
     <div className="space-y-6">

@@ -57,6 +57,7 @@ export type OrderAttachment = {
     file_url: string;
     file_type: string;
     file_size: number | null;
+    order_item_id?: string | null;
     created_at: string;
     uploader_id?: string;
     uploader_name?: string;

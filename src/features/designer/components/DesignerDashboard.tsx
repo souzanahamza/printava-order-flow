@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock, CheckCircle, FileText, AlertCircle, User } from "lucide-react";
+import { Clock, CheckCircle, FileText, AlertCircle, User, Palette, type LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,8 +10,24 @@ import { useAuth } from "@/hooks/useAuth";
 import type { DesignerTaskListRow } from "@/features/designer/types";
 import { DESIGN_TASK_LIST_SELECT } from "@/features/designer/designerTaskSelect";
 import type { DesignerOrderAttachmentRow } from "@/features/designer/designerAttachmentUtils";
+import { cn } from "@/lib/utils";
 
-export const DesignerDashboard = () => {
+type DesignerDashboardStat = {
+    title: string;
+    value: string;
+    icon: LucideIcon;
+    change: string;
+    highlight?: boolean;
+    department: "design";
+    accentColor: "border-l-indigo-500";
+};
+
+export interface DesignerDashboardProps {
+  variant?: "page" | "embedded";
+  layout?: "full" | "statsOnly" | "tasksOnly";
+}
+
+export const DesignerDashboard = ({ variant = "page", layout = "full" }: DesignerDashboardProps) => {
     const { user, loading: authLoading } = useAuth();
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -75,7 +91,7 @@ export const DesignerDashboard = () => {
         return map;
     }, [attachmentsBatch, orderIdsForAttachments]);
 
-    const designerStats = useMemo(() => {
+    const designerStats = useMemo((): DesignerDashboardStat[] => {
         if (!designerTasks || !user?.id) return [];
 
         const unclaimed = designerTasks.filter((t) => t.assigned_to == null).length;
@@ -87,22 +103,28 @@ export const DesignerDashboard = () => {
 
         return [
             {
-                title: "Open queue",
+                title: "Design Queue",
                 value: total.toString(),
                 icon: FileText,
                 change: "Open design tasks in the pool",
+                department: "design",
+                accentColor: "border-l-indigo-500",
             },
             {
-                title: "Unclaimed",
+                title: "Unclaimed Designs",
                 value: unclaimed.toString(),
                 icon: Clock,
                 change: "Available to pick up",
+                department: "design",
+                accentColor: "border-l-indigo-500",
             },
             {
-                title: "Yours",
+                title: "My Designs",
                 value: mine.toString(),
                 icon: User,
                 change: "Assigned to you (any status)",
+                department: "design",
+                accentColor: "border-l-indigo-500",
             },
             {
                 title: "In progress",
@@ -110,6 +132,8 @@ export const DesignerDashboard = () => {
                 icon: AlertCircle,
                 change: "You are actively designing",
                 highlight: mineInProgress > 0,
+                department: "design",
+                accentColor: "border-l-indigo-500",
             },
         ];
     }, [designerTasks, user?.id]);
@@ -119,54 +143,80 @@ export const DesignerDashboard = () => {
         setIsDetailsOpen(true);
     };
 
+    const embedded = variant === "embedded";
+    const showHeader = layout === "full";
+    const showStats = layout === "full" || layout === "statsOnly";
+    const showTasks = layout === "full" || layout === "tasksOnly";
+
+    const statsCards = authLoading || !user?.id || isLoadingDesignerTasks ? (
+        <>
+            {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-4" />
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-8 w-16 mb-2" />
+                        <Skeleton className="h-3 w-32" />
+                    </CardContent>
+                </Card>
+            ))}
+        </>
+    ) : (
+        designerStats.map((stat) => (
+            <Card
+                key={stat.title}
+                className={cn("bg-card shadow-sm border-l-4", stat.accentColor, stat.highlight && "border-orange-500")}
+            >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                    <stat.icon
+                        className={`h-4 w-4 ${stat.highlight ? "text-orange-500" : "text-muted-foreground"}`}
+                    />
+                </CardHeader>
+                <CardContent>
+                    <div
+                        className={`text-2xl font-bold ${stat.highlight ? "text-orange-500" : ""}`}
+                    >
+                        {stat.value}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{stat.change}</p>
+                </CardContent>
+            </Card>
+        ))
+    );
+
+    if (layout === "statsOnly") {
+        return <>{statsCards}</>;
+    }
+
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold text-foreground">Designer Workspace</h1>
-                <p className="text-muted-foreground">
-                    Claim and work on design tasks by line item — multiple designers can share one order.
-                </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {authLoading || !user?.id || isLoadingDesignerTasks ? (
-                    <>
-                        {[1, 2, 3, 4].map((i) => (
-                            <Card key={i}>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <Skeleton className="h-4 w-24" />
-                                    <Skeleton className="h-4 w-4" />
-                                </CardHeader>
-                                <CardContent>
-                                    <Skeleton className="h-8 w-16 mb-2" />
-                                    <Skeleton className="h-3 w-32" />
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </>
+            {showHeader && <div>
+                {embedded ? (
+                    <div className="space-y-1">
+                        <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                            <Palette className="h-5 w-5 text-primary" />
+                            Design
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            Design tasks by line item — pick up and work the queue.
+                        </p>
+                    </div>
                 ) : (
-                    designerStats.map((stat) => (
-                        <Card key={stat.title} className={stat.highlight ? "border-orange-500" : ""}>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                                <stat.icon
-                                    className={`h-4 w-4 ${stat.highlight ? "text-orange-500" : "text-muted-foreground"}`}
-                                />
-                            </CardHeader>
-                            <CardContent>
-                                <div
-                                    className={`text-2xl font-bold ${stat.highlight ? "text-orange-500" : ""}`}
-                                >
-                                    {stat.value}
-                                </div>
-                                <p className="text-xs text-muted-foreground">{stat.change}</p>
-                            </CardContent>
-                        </Card>
-                    ))
+                    <>
+                        <h1 className="text-3xl font-bold text-foreground">Designer Workspace</h1>
+                        <p className="text-muted-foreground">
+                            Claim and work on design tasks by line item — multiple designers can share one order.
+                        </p>
+                    </>
                 )}
-            </div>
+            </div>}
 
-            <Card className="bg-background/60 backdrop-blur">
+            {showStats && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">{statsCards}</div>}
+
+            {showTasks && <Card className="bg-background/60 backdrop-blur">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-primary" />
@@ -207,16 +257,16 @@ export const DesignerDashboard = () => {
                         </div>
                     )}
                 </CardContent>
-            </Card>
+            </Card>}
 
-            <OrderDetails
+            {showTasks && <OrderDetails
                 orderId={selectedOrderId || ""}
                 open={isDetailsOpen}
                 onOpenChange={(open) => {
                     setIsDetailsOpen(open);
                     if (!open) setSelectedOrderId(null);
                 }}
-            />
+            />}
         </div>
     );
 };

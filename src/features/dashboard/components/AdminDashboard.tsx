@@ -12,6 +12,7 @@ import {
   Truck,
   UserX,
   AlertTriangle,
+  type LucideIcon,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,6 +71,20 @@ type UrgentTaskRow = {
     description: string | null;
     product: { name_en: string } | null;
   } | null;
+};
+
+type AdminStatCard = {
+  title: string;
+  value: string;
+  change: string;
+  icon: LucideIcon;
+  department: "admin";
+  accentColor: "border-l-primary";
+  iconClassName?: string;
+  valueClassName?: string;
+  cardClassName?: string;
+  navigateTo?: string;
+  valueLoading?: boolean;
 };
 
 const STATUS_URGENCY: Record<string, number> = {
@@ -139,9 +154,10 @@ interface AdminDashboardProps {
   companyId: string;
   currency: string | undefined;
   baseCurrencySymbol: string | null | undefined;
+  layout?: "full" | "statsOnly" | "tasksOnly";
 }
 
-export function AdminDashboard({ companyId, currency, baseCurrencySymbol }: AdminDashboardProps) {
+export function AdminDashboard({ companyId, currency, baseCurrencySymbol, layout = "full" }: AdminDashboardProps) {
   const navigate = useNavigate();
   const { data: statuses } = useOrderStatuses();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -318,125 +334,138 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol }: Admi
       : Math.round((metrics.productionCompleted / metrics.productionTotal) * 100);
 
   const statsLoading = ordersLoading || tasksLoading;
+  const adminStats = useMemo((): AdminStatCard[] => {
+    return [
+      {
+        title: "Total revenue",
+        value: formatCurrency(metrics.totalRevenue, currency, baseCurrencySymbol),
+        change: "Sum of order totals (company currency)",
+        icon: DollarSign,
+        department: "admin",
+        accentColor: "border-l-primary",
+      },
+      {
+        title: "Design revisions",
+        value: String(metrics.designRevisions),
+        change: "Tasks in Design Revision (rework)",
+        icon: AlertTriangle,
+        department: "admin",
+        accentColor: "border-l-primary",
+        iconClassName: metrics.designRevisions > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+        cardClassName:
+          metrics.designRevisions > 0
+            ? "border-amber-300/60 bg-gradient-to-br from-amber-50/90 to-card dark:border-amber-800/50 dark:from-amber-950/30"
+            : undefined,
+      },
+      {
+        title: "Unassigned tasks",
+        value: String(metrics.unassigned),
+        change: "No owner yet (excludes completed)",
+        icon: UserX,
+        department: "admin",
+        accentColor: "border-l-primary",
+        cardClassName:
+          metrics.unassigned > 0
+            ? "border-sky-300/60 bg-gradient-to-br from-sky-50/80 to-card dark:border-sky-800/50 dark:from-sky-950/25"
+            : undefined,
+      },
+      {
+        title: "Ready for delivery",
+        value: String(metrics.readyForDelivery),
+        change: "Orders in Ready for Pickup",
+        icon: Truck,
+        department: "admin",
+        accentColor: "border-l-primary",
+      },
+      {
+        title: "Pending approvals",
+        value: String(pendingDesignApprovals),
+        change: "Design tasks awaiting review",
+        icon: ClipboardCheck,
+        department: "admin",
+        accentColor: "border-l-primary",
+        navigateTo: "/design-approvals",
+        cardClassName:
+          "cursor-pointer border-violet-300/60 bg-gradient-to-br from-violet-50 via-white to-amber-50/70 transition-shadow hover:shadow-md dark:from-violet-950/40 dark:via-card dark:to-amber-950/25 dark:border-violet-700/50",
+        iconClassName: "text-violet-600 dark:text-violet-300",
+        valueLoading: pendingApprovalsLoading,
+      },
+    ];
+  }, [baseCurrencySymbol, currency, metrics.designRevisions, metrics.readyForDelivery, metrics.totalRevenue, metrics.unassigned, pendingApprovalsLoading, pendingDesignApprovals]);
+  const showHeader = layout === "full";
+  const showStats = layout === "full" || layout === "statsOnly";
+  const showTaskSections = layout === "full" || layout === "tasksOnly";
+
+  const statsCards = statsLoading ? (
+    <>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Card key={i}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="mb-2 h-8 w-16" />
+            <Skeleton className="h-3 w-32" />
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  ) : (
+    <>
+      {adminStats.map((stat) => (
+        <Card
+          key={stat.title}
+          className={cn("bg-card shadow-sm border-l-4", stat.accentColor, stat.cardClassName)}
+          onClick={stat.navigateTo ? () => navigate(stat.navigateTo) : undefined}
+          role={stat.navigateTo ? "link" : undefined}
+          tabIndex={stat.navigateTo ? 0 : undefined}
+          onKeyDown={
+            stat.navigateTo
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    navigate(stat.navigateTo!);
+                  }
+                }
+              : undefined
+          }
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+            <stat.icon className={cn("h-4 w-4 text-muted-foreground", stat.iconClassName)} />
+          </CardHeader>
+          <CardContent>
+            {stat.valueLoading ? (
+              <Skeleton className="mb-2 h-8 w-14" />
+            ) : (
+              <div className={cn("text-2xl font-bold", stat.valueClassName)}>{stat.value}</div>
+            )}
+            <p className="text-xs text-muted-foreground">{stat.change}</p>
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  );
+
+  if (layout === "statsOnly") {
+    return <>{statsCards}</>;
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Operational overview: revenue, workflow bottlenecks, today&apos;s deadlines, and throughput.
-        </p>
-      </div>
+      {showHeader && (
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Operational overview: revenue, workflow bottlenecks, today&apos;s deadlines, and throughput.
+          </p>
+        </div>
+      )}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {statsLoading ? (
-          <>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Card key={i}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-4" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="mb-2 h-8 w-16" />
-                  <Skeleton className="h-3 w-32" />
-                </CardContent>
-              </Card>
-            ))}
-          </>
-        ) : (
-          <>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total revenue</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatCurrency(metrics.totalRevenue, currency, baseCurrencySymbol)}
-                </div>
-                <p className="text-xs text-muted-foreground">Sum of order totals (company currency)</p>
-              </CardContent>
-            </Card>
+      {showStats && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">{statsCards}</div>}
 
-            <Card
-              className={cn(
-                metrics.designRevisions > 0 &&
-                  "border-amber-300/60 bg-gradient-to-br from-amber-50/90 to-card dark:border-amber-800/50 dark:from-amber-950/30"
-              )}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Design revisions</CardTitle>
-                <AlertTriangle
-                  className={cn(
-                    "h-4 w-4",
-                    metrics.designRevisions > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"
-                  )}
-                />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.designRevisions}</div>
-                <p className="text-xs text-muted-foreground">Tasks in Design Revision (rework)</p>
-              </CardContent>
-            </Card>
-
-            <Card
-              className={cn(
-                metrics.unassigned > 0 &&
-                  "border-sky-300/60 bg-gradient-to-br from-sky-50/80 to-card dark:border-sky-800/50 dark:from-sky-950/25"
-              )}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Unassigned tasks</CardTitle>
-                <UserX className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.unassigned}</div>
-                <p className="text-xs text-muted-foreground">No owner yet (excludes completed)</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Ready for delivery</CardTitle>
-                <Truck className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.readyForDelivery}</div>
-                <p className="text-xs text-muted-foreground">Orders in Ready for Pickup</p>
-              </CardContent>
-            </Card>
-
-            <Card
-              className="cursor-pointer border-violet-300/60 bg-gradient-to-br from-violet-50 via-white to-amber-50/70 transition-shadow hover:shadow-md dark:from-violet-950/40 dark:via-card dark:to-amber-950/25 dark:border-violet-700/50"
-              onClick={() => navigate("/design-approvals")}
-              role="link"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  navigate("/design-approvals");
-                }
-              }}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending approvals</CardTitle>
-                <ClipboardCheck className="h-4 w-4 text-violet-600 dark:text-violet-300" />
-              </CardHeader>
-              <CardContent>
-                {pendingApprovalsLoading ? (
-                  <Skeleton className="mb-2 h-8 w-14" />
-                ) : (
-                  <div className="text-2xl font-bold">{pendingDesignApprovals}</div>
-                )}
-                <p className="text-xs text-muted-foreground">Design tasks awaiting review</p>
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
+      {showTaskSections && <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -486,9 +515,9 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol }: Admi
             )}
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
-      <Card>
+      {showTaskSections && <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
@@ -541,9 +570,9 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol }: Admi
             </Table>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      <Card>
+      {showTaskSections && <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Timer className="h-4 w-4 text-primary" />
@@ -572,9 +601,9 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol }: Admi
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      <Card>
+      {showTaskSections && <Card>
         <CardHeader>
           <CardTitle>Recent orders</CardTitle>
         </CardHeader>
@@ -616,9 +645,9 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol }: Admi
             <p className="py-8 text-center text-muted-foreground">No orders found</p>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      {selectedOrderId && (
+      {(showTaskSections || showHeader || showStats) && selectedOrderId && (
         <OrderDetails orderId={selectedOrderId} open={isDetailsOpen} onOpenChange={setIsDetailsOpen} />
       )}
     </div>

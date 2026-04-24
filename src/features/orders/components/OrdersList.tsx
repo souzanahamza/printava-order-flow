@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -52,18 +52,52 @@ type OrderWithDetails = {
   }>;
 };
 
+const DESIGNER_STATUSES = [
+  "Ready for Design",
+  "In Design",
+  "Design Revision",
+  "Waiting for Print File",
+] as const;
+const PRODUCTION_STATUSES = ["Ready for Production", "In Production"] as const;
+
+/** Sentinel status — no real order uses this; yields empty lists when role pool is empty. */
+const NO_MATCH_STATUS = "__no_visible_orders__";
+
 interface OrdersListProps {
   clientId?: string;
   hideFilters?: boolean;
   paymentStatusFilter?: string[];
+  /**
+   * When omitted, allowed statuses are derived from the user's roles.
+   * `null` = no role-based restriction (all order statuses).
+   */
+  allowedStatuses?: string[] | null;
 }
 
-export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter }: OrdersListProps) => {
+export const OrdersList = ({
+  clientId,
+  hideFilters = false,
+  paymentStatusFilter,
+  allowedStatuses: allowedStatusesProp,
+}: OrdersListProps) => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { role, companyId, loading: roleLoading } = useUserRole();
+  const { companyId, isAdmin, isSales, isDesigner, isProduction } = useUserRole();
+
+  const derivedAllowedStatuses = useMemo((): string[] | null => {
+    if (isAdmin || isSales) return null;
+    const s: string[] = [];
+    if (isDesigner) s.push(...DESIGNER_STATUSES);
+    if (isProduction) s.push(...PRODUCTION_STATUSES);
+    return [...new Set(s)];
+  }, [isAdmin, isSales, isDesigner, isProduction]);
+
+  const effectiveAllowedStatuses =
+    allowedStatusesProp !== undefined ? allowedStatusesProp : derivedAllowedStatuses;
+
+  const isStatusPoolRestricted = effectiveAllowedStatuses !== null;
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -72,17 +106,9 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
   // Debounce search query for performance (500ms delay)
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  // Reset page to 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearchQuery, statusFilter, clientId, paymentStatusFilter]);
-
-  // Role-based financial visibility - wait for role to load first
-  const canViewFinancials = !roleLoading && ['admin', 'sales', 'accountant'].includes(role || '');
-
-  // Designer-specific statuses
-  const DESIGNER_STATUSES = ['Ready for Design', 'In Design', 'Design Revision', 'Waiting for Print File'];
-  const isDesigner = role === 'designer';
+  }, [debouncedSearchQuery, statusFilter, clientId, paymentStatusFilter, effectiveAllowedStatuses]);
 
   // Fetch order statuses using custom hook
   const { data: statuses } = useOrderStatuses();
@@ -115,7 +141,16 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
     isLoading,
     isFetching
   } = useQuery({
-    queryKey: ["orders", isDesigner, clientId, paymentStatusFilter, statusFilter, debouncedSearchQuery, page, pageSize],
+    queryKey: [
+      "orders",
+      clientId,
+      paymentStatusFilter,
+      statusFilter,
+      debouncedSearchQuery,
+      page,
+      pageSize,
+      effectiveAllowedStatuses === null ? "all-statuses" : JSON.stringify(effectiveAllowedStatuses ?? []),
+    ],
     queryFn: async () => {
       let query = supabase.from("orders").select(`
           *,
@@ -148,9 +183,12 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
         query = query.in('payment_status', paymentStatusFilter);
       }
 
-      // Filter by designer statuses if user is designer
-      if (isDesigner) {
-        query = query.in('status', DESIGNER_STATUSES);
+      if (effectiveAllowedStatuses !== null) {
+        if (effectiveAllowedStatuses.length > 0) {
+          query = query.in("status", effectiveAllowedStatuses);
+        } else {
+          query = query.eq("status", NO_MATCH_STATUS);
+        }
       }
 
       // Filter by status if not "all"
@@ -221,10 +259,12 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
     }
   });
 
-  // Filter statuses for dropdown based on role
-  const availableStatuses = isDesigner
-    ? statuses?.filter(s => DESIGNER_STATUSES.includes(s.name))
-    : statuses;
+  const availableStatuses = useMemo(() => {
+    if (!statuses) return undefined;
+    if (!isStatusPoolRestricted) return statuses;
+    if (!effectiveAllowedStatuses?.length) return [];
+    return statuses.filter((s) => effectiveAllowedStatuses.includes(s.name));
+  }, [statuses, isStatusPoolRestricted, effectiveAllowedStatuses]);
 
   const handleStatusUpdate = (orderId: string, newStatus: string) => {
     updateStatusMutation.mutate({
@@ -250,7 +290,9 @@ export const OrdersList = ({ clientId, hideFilters = false, paymentStatusFilter 
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{isDesigner ? 'All Active' : 'All Statuses'}</SelectItem>
+                <SelectItem value="all">
+                  {isStatusPoolRestricted ? "All (in your pool)" : "All Statuses"}
+                </SelectItem>
                 {availableStatuses?.map(status => <SelectItem key={status.id} value={status.name.toLowerCase()}>
                   {status.name}
                 </SelectItem>)}

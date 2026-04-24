@@ -7,8 +7,8 @@ interface RoleBasedRouteProps {
   redirectTo?: string;
 }
 
-export function RoleBasedRoute({ children, allowedRoles, redirectTo = '/production' }: RoleBasedRouteProps) {
-  const { role, loading } = useUserRole();
+export function RoleBasedRoute({ children, allowedRoles, redirectTo = '/production-tasks' }: RoleBasedRouteProps) {
+  const { roles, loading } = useUserRole();
 
   if (loading) {
     return (
@@ -18,16 +18,13 @@ export function RoleBasedRoute({ children, allowedRoles, redirectTo = '/producti
     );
   }
 
-  // If no specific roles required, allow access
   if (!allowedRoles) {
     return <>{children}</>;
   }
 
-  // Check if user's role is in the allowed list
-  if (role && allowedRoles.includes(role)) {
+  if (roles.some((r) => allowedRoles.includes(r))) {
     return <>{children}</>;
   }
 
-  // Redirect if not allowed
   return <Navigate to={redirectTo} replace />;
 }

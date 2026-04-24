@@ -87,7 +87,7 @@ interface Client {
 }
 
 const Clients = () => {
-  const { companyId, role } = useUserRole();
+  const { companyId, isAdmin, isSales, loading: roleLoading } = useUserRole();
   const { data: pricingTiers } = usePricingTiers();
   const { data: currencies } = useCurrencies();
   const queryClient = useQueryClient();
@@ -138,7 +138,7 @@ const Clients = () => {
   }, [debouncedSearchTerm]);
 
   // Check if user has access
-  const hasAccess = !!role && ['admin', 'sales', 'accountant'].includes(role);
+  const hasAccess = isAdmin || isSales;
 
   // Calculate pagination range
   const from = (page - 1) * itemsPerPage;
@@ -394,7 +394,7 @@ const Clients = () => {
   };
 
   // Show loading while checking access
-  if (role === undefined || role === null) {
+  if (roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>

@@ -2,22 +2,22 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/shared/ProtectedRoute";
 import { RoleBasedRoute } from "@/components/shared/RoleBasedRoute";
-import { Navigate } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import Dashboard from "@/features/dashboard/pages/Dashboard";
 import Orders from "@/features/orders/pages/OrdersPage";
 import NewOrder from "@/features/orders/pages/NewOrder";
+import EditOrder from "@/features/orders/pages/EditOrder";
 import Quotations from "@/features/orders/pages/Quotations";
 import NewQuotation from "@/features/orders/pages/NewQuotation";
 import Clients from "@/features/clients/pages/Clients";
 import Products from "@/features/products/pages/Products";
 import DesignApprovals from "@/features/designer/pages/DesignApprovals";
-import Production from "@/features/production/pages/Production";
+import ProductionTasksPage from "@/features/production/pages/ProductionTasksPage";
 import Shipping from "@/features/settings/pages/Shipping";
 import Login from "@/features/auth/pages/Login";
 import SignUp from "@/features/auth/pages/SignUp";
@@ -30,9 +30,8 @@ import AdminDesignTasks from "@/features/designer/pages/AdminDesignTasks";
 
 const queryClient = new QueryClient();
 
-// Component to handle role-based redirects from home
 function HomeRedirect() {
-  const { role, loading } = useUserRole();
+  const { loading } = useUserRole();
 
   if (loading) {
     return (
@@ -42,12 +41,6 @@ function HomeRedirect() {
     );
   }
 
-  // Production users go directly to production page
-  if (role === 'production') {
-    return <Navigate to="/production" replace />;
-  }
-
-  // Everyone else sees dashboard
   return <Dashboard />;
 }
 
@@ -79,7 +72,7 @@ const App = () => (
               path="/orders"
               element={
                 <ProtectedRoute>
-                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'designer', 'accountant', 'production']}>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'designer', 'production']}>
                     <Layout><Orders /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
@@ -132,10 +125,21 @@ const App = () => (
             />
 
             <Route
+              path="/orders/:orderId/edit"
+              element={
+                <ProtectedRoute>
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <Layout><EditOrder /></Layout>
+                  </RoleBasedRoute>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
               path="/clients"
               element={
                 <ProtectedRoute>
-                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'accountant']}>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales']}>
                     <Layout><Clients /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
@@ -146,7 +150,7 @@ const App = () => (
               path="/products"
               element={
                 <ProtectedRoute>
-                  <RoleBasedRoute allowedRoles={['admin', 'sales', 'accountant', 'production']}>
+                  <RoleBasedRoute allowedRoles={['admin', 'sales']}>
                     <Layout><Products /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
@@ -154,22 +158,21 @@ const App = () => (
             />
 
             <Route
-              path="/production"
+              path="/production-tasks"
               element={
                 <ProtectedRoute>
                   <RoleBasedRoute allowedRoles={['admin', 'production']}>
-                    <Layout><Production /></Layout>
+                    <Layout><ProductionTasksPage /></Layout>
                   </RoleBasedRoute>
                 </ProtectedRoute>
               }
             />
 
-            {/* Admin-only routes */}
             <Route
-              path="/admin/design-tasks"
+              path="/design-tasks"
               element={
                 <ProtectedRoute>
-                  <RoleBasedRoute allowedRoles={["admin"]}>
+                  <RoleBasedRoute allowedRoles={["admin", "designer"]}>
                     <Layout>
                       <AdminDesignTasks />
                     </Layout>
@@ -177,6 +180,10 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+
+            {/* Legacy URLs → task-based routes */}
+            <Route path="/production" element={<Navigate to="/production-tasks" replace />} />
+            <Route path="/admin/design-tasks" element={<Navigate to="/design-tasks" replace />} />
 
             <Route
               path="/team"

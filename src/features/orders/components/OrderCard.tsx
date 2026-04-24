@@ -46,10 +46,7 @@ export function OrderCard({
   baseCurrencySymbol,
   foreignCurrencySymbol
 }: OrderCardProps) {
-  const { role, loading } = useUserRole();
-
-  // Role-based financial visibility
-  const canViewFinancials = !loading && ['admin', 'sales', 'accountant'].includes(role || '');
+  const { loading, canViewFinancials } = useUserRole();
   
   return (
     <div

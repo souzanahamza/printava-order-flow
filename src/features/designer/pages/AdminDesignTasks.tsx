@@ -81,11 +81,7 @@ export default function AdminDesignTasks() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Design Tasks Monitor</h1>
-        <p className="text-muted-foreground">
-          All design tasks in your company, sorted by order due date. Click a card (outside Order and client files) to
-          open the line-item task sheet for reassignment and status.
-        </p>
+        <h1 className="text-3xl font-bold text-foreground">Design Tasks</h1>
       </div>
 
       {authLoading || !user?.id || isLoading ? (
@@ -105,7 +101,6 @@ export default function AdminDesignTasks() {
             <DesignerTaskCard
               key={task.id}
               task={task}
-              readOnly
               onOpenOrderDetails={handleOpenOrderDetails}
               onOpenTaskDetail={() => openTaskDetail(task)}
             />

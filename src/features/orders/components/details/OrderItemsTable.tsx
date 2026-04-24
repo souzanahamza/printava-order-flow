@@ -23,11 +23,11 @@ interface OrderItemsTableProps {
 type TaskRow = NonNullable<OrderDetail["order_items"][number]["order_tasks"]>[number];
 
 export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTableProps) {
-    const { role, loading: roleLoading } = useUserRole();
+    const { loading: roleLoading, canViewFinancials, isAdmin, isSales } = useUserRole();
     const { data: taskStatuses } = useTaskStatuses();
 
-    const canViewFinancials = !roleLoading && ["admin", "sales", "accountant"].includes(role || "");
-    const canSalesReviewDesign = !roleLoading && (role === "admin" || role === "sales");
+    const canSalesReviewDesign = !roleLoading && (isAdmin || isSales);
+    const showFinancialColumns = !roleLoading && canViewFinancials;
 
     const [activeItem, setActiveItem] = useState<OrderDetail["order_items"][number] | null>(null);
 
@@ -118,8 +118,8 @@ export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTable
                                     <th className="text-left p-4 font-medium">Product</th>
                                     <th className="text-center p-4 font-medium">Qty</th>
                                     <th className="text-left p-4 font-medium">Execution Status</th>
-                                    {canViewFinancials && <th className="text-right p-4 font-medium">Unit</th>}
-                                    {canViewFinancials && <th className="text-right p-4 font-medium">Total</th>}
+                                    {showFinancialColumns && <th className="text-right p-4 font-medium">Unit</th>}
+                                    {showFinancialColumns && <th className="text-right p-4 font-medium">Total</th>}
                                     <th className="w-10"></th>
                                 </tr>
                             </thead>
@@ -183,12 +183,12 @@ export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTable
                                                     {renderStatusDot(Wrench, "Production", productionTask)}
                                                 </div>
                                             </td>
-                                            {canViewFinancials && (
+                                            {showFinancialColumns && (
                                                 <td className="p-4 text-right">
                                                     {formatCurrency(item.unit_price, currency)}
                                                 </td>
                                             )}
-                                            {canViewFinancials && (
+                                            {showFinancialColumns && (
                                                 <td className="p-4 text-right font-semibold">
                                                     {formatCurrency(item.item_total, currency)}
                                                 </td>
@@ -200,7 +200,7 @@ export function OrderItemsTable({ items, totalPrice, currency }: OrderItemsTable
                                     );
                                 })}
                             </tbody>
-                            {canViewFinancials && (
+                            {showFinancialColumns && (
                                 <tfoot className="bg-muted/30 border-t-2">
                                     <tr>
                                         <td colSpan={4} className="p-4 text-right font-semibold">

@@ -446,6 +446,10 @@ export function DesignerTaskCard({
             <StatusBadge status={task.status} color={statusColor} className="text-[10px]" />
             {urgencyBadge}
           </div>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Assigned to:</span>{" "}
+            {isUnassigned ? "---" : isMine ? "You" : assigneeName ?? "---"}
+          </p>
         </div>
       </CardHeader>
 

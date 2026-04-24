@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Calendar, DollarSign, FileText, Upload, Printer, Loader2, History, RefreshCw } from "lucide-react";
+import { Package, Calendar, DollarSign, FileText, Upload, Printer, Loader2, History, RefreshCw, Pencil } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -16,7 +16,6 @@ import { OrderDetail, OrderAttachment } from "@/features/orders/types";
 import { ClientInfoCard } from "./details/ClientInfoCard";
 import { OrderItemsTable } from "./details/OrderItemsTable";
 import { AttachmentsList } from "./details/AttachmentsList";
-import { DesignerWorkspace } from "./details/DesignerWorkspace";
 import { InvoiceTemplate, CompanyProfile } from "./details/InvoiceTemplate";
 import { DeliveryAction } from "./details/actions/DeliveryAction";
 import { ArchivedHistory } from "./details/ArchivedHistory";
@@ -36,13 +35,17 @@ export function OrderDetails({
   onOpenChange
 }: OrderDetailsProps) {
   const navigate = useNavigate();
-  const { role, companyId, loading: roleLoading } = useUserRole();
+  const {
+    companyId,
+    loading: roleLoading,
+    canViewFinancials,
+    isAdmin,
+    isSales,
+  } = useUserRole();
   const { data: statuses } = useOrderStatuses();
   const componentRef = useRef<HTMLDivElement>(null);
   const [isInvoiceReady, setIsInvoiceReady] = useState(false);
 
-  // Role-based financial visibility - wait for role to load first
-  const canViewFinancials = !roleLoading && ['admin', 'sales', 'accountant'].includes(role || '');
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
@@ -179,30 +182,17 @@ export function OrderDetails({
   const clientFiles = attachments?.filter(file => file.file_type === "client_reference") || [];
   const designFiles = attachments?.filter(file => file.file_type === "design_mockup") || [];
   const printFiles = attachments?.filter(file => file.file_type === "print_file") || [];
+  const orderItemNamesById = Object.fromEntries(
+    (order?.order_items || []).map((item) => [
+      item.id,
+      `${item.quantity}x ${item.product?.name_en || item.product?.name_ar || "Unnamed Product"}`,
+    ])
+  );
 
-  const { data: hasOpenDesignTasks, isFetched: openDesignTasksFetched } = useQuery({
-    queryKey: ["order-open-design-tasks", orderId],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from("order_tasks")
-        .select("*", { count: "exact", head: true })
-        .eq("order_id", orderId)
-        .eq("task_type", "design")
-        .neq("status", "Completed");
-      if (error) throw error;
-      return (count ?? 0) > 0;
-    },
-    enabled: open && !!orderId && role === "designer",
-  });
+  const showDeliveryWorkflow =
+    canViewFinancials && !roleLoading && order?.status === "Ready for Pickup";
 
-  // Designer workspace: any non-completed design task (parent order.status comes from DB trigger)
-  const showDesignerWorkspace =
-    role === "designer" && openDesignTasksFetched && hasOpenDesignTasks === true;
-
-  // Check if Delivery Action should be visible
-  const showDeliveryWorkflow = (role === "admin" || role === "accountant" || role === "sales") && order?.status === "Ready for Pickup";
-
-  const showOrderHistoryTab = role === "admin";
+  const showOrderHistoryTab = isAdmin;
 
   const handleSuccess = () => {
     onOpenChange(false);
@@ -210,11 +200,11 @@ export function OrderDetails({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-5xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-4 sm:p-6 gap-4 sm:gap-6">
         {isLoading ? (
-          <div className="space-y-6">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-48 w-full" />
+          <div className="space-y-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-32 w-full" />
             <Skeleton className="h-64 w-full" />
           </div>
         ) : order ? (
@@ -224,76 +214,127 @@ export function OrderDetails({
               ? order.currencies?.code
               : companyProfile?.base_currency?.code || '';
 
+            const orderNumberLabel = order.order_number != null
+              ? `#${String(order.order_number).padStart(4, '0')}`
+              : `#${order.id.slice(0, 8).toUpperCase()}`;
+            const statusColor = statuses?.find(s => s.name === order.status)?.color;
+
+            const priceNode = canViewFinancials && !roleLoading ? (
+              <PriceDisplay
+                amount={order.total_price_foreign || order.total_price || 0}
+                baseCurrency={companyProfile?.base_currency?.code}
+                foreignCurrency={order.currencies?.code}
+                baseAmount={order.total_price_company || order.total_price || 0}
+                baseSymbol={companyProfile?.base_currency?.symbol}
+                foreignSymbol={order.currencies?.symbol}
+                variant="inline"
+              />
+            ) : null;
+
+            const actionButtons = (
+              <>
+                {(isAdmin || isSales) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 lg:h-9 shrink-0"
+                    onClick={() => navigate(`/orders/new?fromOrder=${order.id}`)}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="ml-1.5">Reorder</span>
+                  </Button>
+                )}
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 lg:h-9 shrink-0"
+                    onClick={() => navigate(`/orders/${order.id}/edit`)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    <span className="ml-1.5">Edit</span>
+                  </Button>
+                )}
+                {canViewFinancials && !roleLoading && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-10 lg:h-9 shrink-0"
+                    onClick={() => handlePrint()}
+                    disabled={!isInvoiceReady}
+                  >
+                    {isInvoiceReady ? (
+                      <>
+                        <Printer className="h-4 w-4" />
+                        <span className="ml-1.5">Print</span>
+                      </>
+                    ) : (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="ml-1.5">Preparing...</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+              </>
+            );
+
             return (
-              <div className="space-y-10">
-                {/* Header */}
-                <DialogHeader className="-bottom-10 ">
-                  <div className="flex items-start justify-between gap-16 ">
-                    <div className="space-y-2">
-                      <DialogTitle className="text-3xl font-bold flex items-center gap-3">
-                        <Package className="h-8 w-8 text-primary" />
-                        Order {order.order_number != null ? `#${String(order.order_number).padStart(4, '0')}` : `#${order.id.slice(0, 8).toUpperCase()}`}
-                        {order.order_number != null && (
-                          <span className="text-sm font-normal text-muted-foreground ml-2">
-                            (Ref: {order.id.slice(0, 8)})
+              <div className="space-y-6">
+                {/* Responsive Header Bar */}
+                <DialogHeader className="space-y-0 text-left">
+                  <DialogTitle className="sr-only">Order {orderNumberLabel}</DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Detailed view for order {orderNumberLabel}
+                  </DialogDescription>
+
+                  {/* Unified 2-row header: compacts to full stack on phones */}
+                  <div className="space-y-3">
+                    {/* Top row: order number (+ inline Ref on md+) + status */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h2 className="flex items-baseline gap-2 min-w-0 text-lg md:text-xl lg:text-2xl font-bold leading-tight tracking-tight">
+                          <span className="flex items-center gap-2 min-w-0">
+                            <Package className="h-5 w-5 md:h-6 md:w-6 text-primary shrink-0 self-center" />
+                            <span className="truncate">Order {orderNumberLabel}</span>
                           </span>
+                          {order.order_number != null && (
+                            <span className="hidden md:inline text-xs font-normal text-muted-foreground truncate">
+                              Ref: {order.id.slice(0, 8)}
+                            </span>
+                          )}
+                        </h2>
+                        {order.order_number != null && (
+                          <p className="md:hidden mt-0.5 pl-7 text-[11px] text-muted-foreground truncate">
+                            Ref: {order.id.slice(0, 8)}
+                          </p>
                         )}
-                      </DialogTitle>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      </div>
+                      <StatusBadge
+                        status={order.status}
+                        color={statusColor}
+                        className="shrink-0 mt-0.5"
+                      />
+                    </div>
+
+                    {/* Secondary row: meta left, actions right on md+; stacked on mobile */}
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs md:text-sm text-muted-foreground">
                         <span className="flex items-center gap-1.5">
-                          <Calendar className="h-4 w-4" />
-                          {format(new Date(order.created_at), "PPP HH:mm")}
+                          <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                          {format(new Date(order.created_at), "PP · HH:mm")}
                         </span>
-                        {canViewFinancials && (
-                          <span className="flex items-center gap-1.5">
-                            <DollarSign className="h-4 w-4" />
-                            <PriceDisplay
-                              amount={order.total_price_foreign || order.total_price || 0}
-                              baseCurrency={companyProfile?.base_currency?.code}
-                              foreignCurrency={order.currencies?.code}
-                              baseAmount={order.total_price_company || order.total_price || 0}
-                              baseSymbol={companyProfile?.base_currency?.symbol}
-                              foreignSymbol={order.currencies?.symbol}
-                              variant="inline"
-                            />
+                        {priceNode && (
+                          <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                            <DollarSign className="h-3.5 w-3.5 md:h-4 md:w-4 text-muted-foreground" />
+                            {priceNode}
                           </span>
                         )}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {(role === "admin" || role === "sales") && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/orders/new?fromOrder=${order.id}`)}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Reorder
-                          </Button>
-                        </>
-                      )}
-                      {(role === "accountant" || role === "admin" || role === "sales") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handlePrint()}
-                          disabled={!isInvoiceReady}
-                        >
-                          {isInvoiceReady ? (
-                            <>
-                              <Printer className="h-4 w-4 mr-2" />
-                              Print Invoice
-                            </>
-                          ) : (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Preparing...
-                            </>
-                          )}
-                        </Button>
-                      )}
-                      <StatusBadge status={order.status} color={statuses?.find(s => s.name === order.status)?.color} />
+
+                      <div className="flex flex-wrap md:flex-nowrap items-center gap-2 overflow-x-auto md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0 pb-1 md:pb-0 md:shrink-0">
+                        {actionButtons}
+                      </div>
                     </div>
                   </div>
                 </DialogHeader>
@@ -357,11 +398,19 @@ export function OrderDetails({
                       />
                     )}
 
+                    {/* Order Items Table (shown before file cards for quick overview) */}
+                    <OrderItemsTable
+                      items={order.order_items}
+                      totalPrice={order.total_price}
+                      currency={displayCurrency}
+                    />
+
                     {/* Design Proofs & Mockups */}
                     <AttachmentsList
                       attachments={designFiles}
                       title="Design Proofs & Mockups"
                       icon={Upload}
+                      orderItemNamesById={orderItemNamesById}
                     />
 
                     {/* Client Files & Assets */}
@@ -369,6 +418,7 @@ export function OrderDetails({
                       attachments={clientFiles}
                       title="Client Files & Assets"
                       icon={FileText}
+                      orderItemNamesById={orderItemNamesById}
                     />
 
                     {/* Print Files */}
@@ -379,18 +429,7 @@ export function OrderDetails({
                       className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/20"
                       iconClassName="text-purple-600"
                       iconBgClassName="bg-purple-100 dark:bg-purple-900/30"
-                    />
-
-                    {/* Designer Workspace */}
-                    {showDesignerWorkspace && (
-                      <DesignerWorkspace orderId={orderId} order={order} onSuccess={handleSuccess} />
-                    )}
-
-                    {/* Order Items Table */}
-                    <OrderItemsTable
-                      items={order.order_items}
-                      totalPrice={order.total_price}
-                      currency={displayCurrency}
+                      orderItemNamesById={orderItemNamesById}
                     />
 
                     {/* Archived Revisions History */}

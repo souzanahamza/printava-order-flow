@@ -9,26 +9,24 @@ const corsHeaders = {
 
 const json = (payload: unknown) =>
   new Response(JSON.stringify(payload), {
-    // IMPORTANT: always return 200 so supabase-js doesn't surface this as a fatal FunctionsHttpError
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+const ALLOWED_ROLES = ["sales", "designer", "production"] as const;
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get and validate authorization header
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
       console.error("No authorization header provided");
       return json({ success: false, error: "Authorization required" });
     }
 
-    // Create admin client for privileged operations
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
@@ -40,7 +38,6 @@ serve(async (req) => {
       },
     );
 
-    // Create a client using the caller's JWT to verify their identity and role
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -55,7 +52,6 @@ serve(async (req) => {
       },
     );
 
-    // Get the current user from the JWT
     const {
       data: { user: caller },
       error: authError,
@@ -66,69 +62,72 @@ serve(async (req) => {
       return json({ success: false, error: "Invalid or expired token" });
     }
 
-    console.log("Authenticated caller:", caller.id);
-
-    // Verify the caller has admin role using the user_roles table
-    const { data: callerRole, error: roleError } = await supabaseAdmin
+    const { data: callerAdminRows, error: callerRoleError } = await supabaseAdmin
       .from("user_roles")
-      .select("role, company_id")
+      .select("company_id")
       .eq("user_id", caller.id)
-      .single();
+      .eq("role", "admin")
+      .limit(1);
 
-    if (roleError || !callerRole) {
-      console.error("Failed to fetch caller role:", roleError);
-      return json({ success: false, error: "Unable to verify user role" });
-    }
-
-    if (callerRole.role !== "admin") {
-      console.error("Caller is not an admin:", callerRole.role);
+    if (callerRoleError || !callerAdminRows?.length) {
+      console.error("Caller is not an admin:", callerRoleError);
       return json({ success: false, error: "Only admins can create users" });
     }
 
-    const callerCompanyId = callerRole.company_id;
-    console.log("Caller is admin of company:", callerCompanyId);
+    const callerCompanyId = callerAdminRows[0].company_id as string;
 
-    // Parse request body
-    const { email, password, fullName, role } = await req.json();
+    const body = await req.json();
+    const { email, password, fullName, role, roles: rolesRaw } = body;
 
-    // Validate required fields
-    if (!email || !password || !fullName || !role) {
+    let roles: string[];
+    if (Array.isArray(rolesRaw) && rolesRaw.length > 0) {
+      roles = [...new Set(rolesRaw.map((r: unknown) => String(r)))];
+    } else if (typeof role === "string" && role) {
+      roles = [role];
+    } else {
       return json({
         success: false,
-        error: "Missing required fields: email, password, fullName, role",
+        error: "Missing required field: roles (array) or role (string)",
       });
     }
 
-    // Validate role is one of the allowed values
-    const allowedRoles = ["sales", "designer", "production", "accountant"];
-    if (!allowedRoles.includes(role)) {
-      console.error("Invalid role requested:", role);
+    if (!email || !password || !fullName) {
       return json({
         success: false,
-        error: `Invalid role. Allowed roles: ${allowedRoles.join(", ")}`,
+        error: "Missing required fields: email, password, fullName",
       });
     }
 
-    // Force the company ID to match the caller's company
+    if (roles.length === 0) {
+      return json({ success: false, error: "Select at least one role" });
+    }
+
+    for (const r of roles) {
+      if (!ALLOWED_ROLES.includes(r as (typeof ALLOWED_ROLES)[number])) {
+        return json({
+          success: false,
+          error: `Invalid role "${r}". Allowed: ${ALLOWED_ROLES.join(", ")}`,
+        });
+      }
+    }
+
     const targetCompanyId = callerCompanyId;
-    console.log("Creating user in company:", targetCompanyId, "with role:", role);
+    const primaryRole = roles[0];
 
-    // Create user with admin client
-    const { data: userData, error: createError } = await supabaseAdmin.auth
-      .admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: fullName,
-          role,
-          company_id: targetCompanyId,
-        },
-      });
+    const { data: userData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        role: primaryRole,
+        company_id: targetCompanyId,
+      },
+    });
 
     if (createError) {
       console.error("Error creating user:", createError);
-      const anyErr = createError as any;
+      const anyErr = createError as { code?: string };
       return json({
         success: false,
         error: createError.message,
@@ -136,7 +135,27 @@ serve(async (req) => {
       });
     }
 
-    console.log("User created successfully:", userData.user?.id);
+    const newUserId = userData.user?.id;
+    if (!newUserId) {
+      return json({ success: false, error: "User created but ID missing" });
+    }
+
+    for (const r of roles.slice(1)) {
+      const { error: insertErr } = await supabaseAdmin.from("user_roles").insert({
+        user_id: newUserId,
+        role: r,
+        company_id: targetCompanyId,
+      });
+      if (insertErr) {
+        console.error("Failed to insert additional role:", insertErr);
+        return json({
+          success: false,
+          error: `User created but failed to assign role "${r}": ${insertErr.message}`,
+        });
+      }
+    }
+
+    console.log("User created with roles:", roles.join(", "));
     return json({ success: true, user: userData.user });
   } catch (error) {
     console.error("Error in create-user-direct function:", error);

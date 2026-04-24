@@ -31,8 +31,8 @@ import {
 type Product = Tables<"products">;
 
 const Products = () => {
-  const { role, companyId } = useUserRole();
-  const canEditProducts = role === 'admin' || role === 'sales' || role === 'accountant';
+  const { companyId, isAdmin, isSales } = useUserRole();
+  const canEditProducts = isAdmin || isSales;
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);

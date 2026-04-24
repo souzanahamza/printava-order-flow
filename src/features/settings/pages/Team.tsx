@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import {
   Table,
@@ -27,32 +29,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RolePicker } from '@/features/settings/components/RolePicker';
+import { ROLE_OPTIONS, formatRoleLabel, type AppRole } from '@/features/settings/types/teamRoles';
 import { toast } from 'sonner';
-import { MoreVertical, Plus, UserPlus } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { MoreVertical, UserPlus } from 'lucide-react';
 
 interface TeamMember {
   id: string;
   full_name: string | null;
-  role: string | null;
+  roles: AppRole[];
   email: string | null;
 }
 
-// Note: 'admin' is excluded from new user creation - admins can only be created through signup
-const ROLES = ['sales', 'designer', 'accountant', 'production'];
+interface UpdateMemberPayload {
+  memberId: string;
+  fullName: string;
+  nextRoles: AppRole[];
+  companyId: string;
+  actorUserId: string | null;
+}
 
 export default function Team() {
   const { user } = useAuth();
-  const { role, companyId, loading: roleLoading } = useUserRole();
+  const { isAdmin, companyId, loading: roleLoading } = useUserRole();
+  const queryClient = useQueryClient();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -60,24 +62,18 @@ export default function Team() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [editedMember, setEditedMember] = useState({
     fullName: '',
-    role: 'sales' as string,
+    roles: ['sales'] as AppRole[],
   });
   const [newMember, setNewMember] = useState({
     email: '',
     fullName: '',
-    role: 'sales' as string,
+    roles: ['sales'] as AppRole[],
     password: '',
   });
 
-  useEffect(() => {
-    if (companyId) {
-      fetchTeamMembers();
-    }
-  }, [companyId]);
-
-  const fetchTeamMembers = async () => {
+  const fetchTeamMembers = useCallback(async () => {
+    if (!companyId) return;
     try {
-      // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, email')
@@ -86,19 +82,23 @@ export default function Team() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch roles from user_roles table
-      const { data: roles, error: rolesError } = await supabase
+      const { data: roleRows, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role')
         .eq('company_id', companyId);
 
       if (rolesError) throw rolesError;
 
-      // Merge profiles with roles
-      const rolesMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
-      const membersWithRoles = (profiles || []).map(profile => ({
+      const rolesByUser = new Map<string, string[]>();
+      for (const row of roleRows ?? []) {
+        const list = rolesByUser.get(row.user_id) ?? [];
+        list.push(row.role);
+        rolesByUser.set(row.user_id, list);
+      }
+
+      const membersWithRoles: TeamMember[] = (profiles ?? []).map((profile) => ({
         ...profile,
-        role: rolesMap.get(profile.id) || null
+        roles: ([...(rolesByUser.get(profile.id) ?? [])].sort() as AppRole[]),
       }));
 
       setTeamMembers(membersWithRoles);
@@ -108,12 +108,22 @@ export default function Team() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [companyId]);
+
+  useEffect(() => {
+    if (companyId) {
+      fetchTeamMembers();
+    }
+  }, [companyId, fetchTeamMembers]);
 
   const handleAddMember = async () => {
     try {
       if (!newMember.email || !newMember.fullName || !newMember.password) {
         toast.error('Please fill in all fields');
+        return;
+      }
+      if (newMember.roles.length === 0) {
+        toast.error('Select at least one role');
         return;
       }
 
@@ -122,81 +132,152 @@ export default function Team() {
           email: newMember.email,
           password: newMember.password,
           fullName: newMember.fullName,
-          role: newMember.role,
+          roles: newMember.roles,
           companyId: companyId,
         },
       });
 
-      const getEdgeFunctionErrorMessage = (err: any) => {
+      const getEdgeFunctionErrorMessage = (err: { context?: { body?: unknown }; message?: string }) => {
         const body = err?.context?.body;
         if (typeof body === 'string') {
           try {
-            const parsed = JSON.parse(body);
+            const parsed = JSON.parse(body) as { error?: string };
             if (parsed?.error) return String(parsed.error);
           } catch {
-            // ignore JSON parse errors
+            // ignore
           }
         }
-        if (body?.error) return String(body.error);
+        if (body && typeof body === 'object' && body !== null && 'error' in body) {
+          return String((body as { error?: string }).error);
+        }
         return err?.message ? String(err.message) : 'Failed to add team member';
       };
 
-      // If the function returns a non-2xx response, Supabase will populate `error`
       if (error) {
         toast.error(getEdgeFunctionErrorMessage(error));
         return;
       }
 
-      // Our edge function returns 200 for both success/failure; check payload
       if (!data?.success) {
-        toast.error(String(data?.error ?? 'Failed to add team member'));
+        toast.error(String((data as { error?: string })?.error ?? 'Failed to add team member'));
         return;
       }
 
       toast.success('Team member created successfully');
       setIsAddDialogOpen(false);
-      setNewMember({ email: '', fullName: '', role: 'sales', password: '' });
+      setNewMember({ email: '', fullName: '', roles: ['sales'], password: '' });
       fetchTeamMembers();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding member:', error);
-      toast.error(error?.message ? String(error.message) : 'Failed to add team member');
+      toast.error(error instanceof Error ? error.message : 'Failed to add team member');
     }
   };
 
   const handleUpdateMember = async () => {
-    if (!selectedMember) return;
-    
-    try {
-      if (!editedMember.fullName.trim()) {
-        toast.error('Full name cannot be empty');
-        return;
+    if (!selectedMember || !companyId) return;
+
+    if (!editedMember.fullName.trim()) {
+      toast.error('Full name cannot be empty');
+      return;
+    }
+    if (editedMember.roles.length === 0) {
+      toast.error('Select at least one role');
+      return;
+    }
+
+    await updateMemberMutation.mutateAsync({
+      memberId: selectedMember.id,
+      fullName: editedMember.fullName,
+      nextRoles: editedMember.roles,
+      companyId,
+      actorUserId: user?.id ?? null,
+    });
+  };
+
+  const updateMemberMutation = useMutation({
+    mutationFn: async (payload: UpdateMemberPayload) => {
+      const dedupedNextRoles = [...new Set(payload.nextRoles)] as AppRole[];
+      if (dedupedNextRoles.length === 0) {
+        throw new Error('Select at least one role');
       }
 
-      // Update profile (name only - role is in separate table)
+      const { data: existingRoleRows, error: existingRolesError } = await supabase
+        .from('user_roles')
+        .select('id, role, user_id, company_id')
+        .eq('user_id', payload.memberId)
+        .eq('company_id', payload.companyId);
+
+      if (existingRolesError) throw existingRolesError;
+
+      const existingRoles = (existingRoleRows ?? []).map((row) => row.role) as AppRole[];
+      const existingRoleSet = new Set(existingRoles);
+      const nextRoleSet = new Set(dedupedNextRoles);
+
+      if (
+        payload.actorUserId === payload.memberId &&
+        existingRoleSet.has('admin') &&
+        !nextRoleSet.has('admin')
+      ) {
+        throw new Error("You can't remove the admin role from your own account.");
+      }
+
+      const rolesToDelete = existingRoles.filter((role) => !nextRoleSet.has(role));
+      const rolesToInsert = dedupedNextRoles.filter((role) => !existingRoleSet.has(role));
+
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ full_name: editedMember.fullName })
-        .eq('id', selectedMember.id);
-
+        .update({ full_name: payload.fullName.trim() })
+        .eq('id', payload.memberId)
+        .eq('company_id', payload.companyId);
       if (profileError) throw profileError;
 
-      // Update role in user_roles table
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .update({ role: editedMember.role as 'admin' | 'sales' | 'designer' | 'production' | 'accountant' })
-        .eq('user_id', selectedMember.id);
+      const roleOps = [];
+      if (rolesToDelete.length > 0) {
+        roleOps.push(
+          supabase
+            .from('user_roles')
+            .delete()
+            .eq('user_id', payload.memberId)
+            .eq('company_id', payload.companyId)
+            .in('role', rolesToDelete)
+        );
+      }
+      if (rolesToInsert.length > 0) {
+        roleOps.push(
+          supabase.from('user_roles').insert(
+            rolesToInsert.map((role) => ({
+              user_id: payload.memberId,
+              company_id: payload.companyId,
+              role,
+            }))
+          )
+        );
+      }
 
-      if (roleError) throw roleError;
-      
+      const roleResults = await Promise.all(roleOps);
+      for (const result of roleResults) {
+        if (result.error) throw result.error;
+      }
+
+      return { memberId: payload.memberId };
+    },
+    onSuccess: async ({ memberId }) => {
       toast.success('Member updated successfully');
-      fetchTeamMembers();
+      await Promise.all([
+        fetchTeamMembers(),
+        queryClient.invalidateQueries({ queryKey: ['user-roles', memberId] }),
+      ]);
+      if (user?.id === memberId) {
+        await queryClient.invalidateQueries({ queryKey: ['user-profile', memberId] });
+      }
       setIsEditDialogOpen(false);
       setSelectedMember(null);
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error updating member:', error);
-      toast.error('Failed to update member');
-    }
-  };
+      toast.error(error instanceof Error ? error.message : 'Failed to update member');
+    },
+  });
 
   const handleDeleteMember = async (memberId: string) => {
     if (memberId === user?.id) {
@@ -208,14 +289,13 @@ export default function Team() {
       return;
     }
 
+    if (!companyId) return;
+
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', memberId);
+      const { error } = await supabase.from('profiles').delete().eq('id', memberId).eq('company_id', companyId);
 
       if (error) throw error;
-      
+
       toast.success('Team member deleted successfully');
       fetchTeamMembers();
     } catch (error) {
@@ -224,13 +304,12 @@ export default function Team() {
     }
   };
 
-  // Redirect if not admin
-  if (role && role !== 'admin') {
+  if (!isAdmin) {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Access Denied</h1>
-          <p className="text-muted-foreground mt-2">You don't have permission to access this page.</p>
+          <p className="text-muted-foreground mt-2">You don&apos;t have permission to access this page.</p>
         </div>
       </div>
     );
@@ -249,11 +328,9 @@ export default function Team() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Team Management</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your team members and their roles
-          </p>
+          <p className="text-muted-foreground mt-2">Manage your team members and their roles</p>
         </div>
-        
+
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -261,12 +338,10 @@ export default function Team() {
               Add Member
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add Team Member</DialogTitle>
-              <DialogDescription>
-                Create a new team member account with direct access
-              </DialogDescription>
+              <DialogDescription>Create a new team member account with direct access</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -298,24 +373,11 @@ export default function Team() {
                   onChange={(e) => setNewMember({ ...newMember, password: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select
-                  value={newMember.role}
-                  onValueChange={(value) => setNewMember({ ...newMember, role: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role.charAt(0).toUpperCase() + role.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <RolePicker
+                idPrefix="add"
+                value={newMember.roles}
+                onChange={(roles) => setNewMember({ ...newMember, roles })}
+              />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
@@ -333,7 +395,7 @@ export default function Team() {
             <TableRow>
               <TableHead>Full Name</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
+              <TableHead>Roles</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -354,11 +416,23 @@ export default function Team() {
                       <span className="ml-2 text-xs text-muted-foreground">(You)</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {member.email || 'N/A'}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{member.email || 'N/A'}</TableCell>
                   <TableCell>
-                    <span className="capitalize">{member.role || 'N/A'}</span>
+                    {member.roles.length ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {member.roles.map((role) => (
+                          <Badge
+                            key={`${member.id}-${role}`}
+                            variant="outline"
+                            className={ROLE_OPTIONS.find((option) => option.role === role)?.badgeClassName}
+                          >
+                            {formatRoleLabel(role)}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -378,7 +452,7 @@ export default function Team() {
                             setSelectedMember(member);
                             setEditedMember({
                               fullName: member.full_name || '',
-                              role: member.role || 'sales',
+                              roles: member.roles,
                             });
                             setIsEditDialogOpen(true);
                           }}
@@ -403,11 +477,11 @@ export default function Team() {
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Team Member</DialogTitle>
             <DialogDescription>
-              Update details for {selectedMember?.full_name || 'this member'}
+              Update details and roles for {selectedMember?.full_name || 'this member'}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -420,30 +494,22 @@ export default function Team() {
                 onChange={(e) => setEditedMember({ ...editedMember, fullName: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-role">Role</Label>
-              <Select
-                value={editedMember.role}
-                onValueChange={(value) => setEditedMember({ ...editedMember, role: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <RolePicker
+              idPrefix="edit"
+              value={editedMember.roles}
+              onChange={(roles) => setEditedMember({ ...editedMember, roles })}
+              disabledRoles={
+                selectedMember?.id === user?.id && selectedMember.roles.includes('admin') ? ['admin'] : []
+              }
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateMember}>Save Changes</Button>
+            <Button onClick={handleUpdateMember} disabled={updateMemberMutation.isPending}>
+              {updateMemberMutation.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

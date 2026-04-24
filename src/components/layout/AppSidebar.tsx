@@ -35,14 +35,13 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ['admin', 'sales', 'designer', 'accountant'] },
-  { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'accountant', 'production'] },
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, roles: ['admin', 'sales', 'designer', 'production'] },
+  { title: "Orders", url: "/orders", icon: ShoppingCart, roles: ['admin', 'sales', 'designer', 'production'] },
   { title: "Quotations", url: "/quotations", icon: FileText, roles: ['admin', 'sales'] },
-  { title: "Design Tasks Monitor", url: "/admin/design-tasks", icon: Layers, roles: ["admin"] },
-  // { title: "New Quotation", url: "/quotations/new", icon: Plus, roles: ['admin', 'sales'] },
-  { title: "Clients", url: "/clients", icon: UserCircle, roles: ['admin', 'sales', 'accountant'] },
-  { title: "Products", url: "/products", icon: Package, roles: ['admin', 'sales', 'accountant', 'production'] },
-  { title: "Production", url: "/production", icon: Factory, roles: ['admin', 'production'] },
+  { title: "Clients", url: "/clients", icon: UserCircle, roles: ['admin', 'sales'] },
+  { title: "Products", url: "/products", icon: Package, roles: ['admin', 'sales'] },
+  { title: "Design Tasks", url: "/design-tasks", icon: Layers, roles: ["admin", "designer"] },
+  { title: "Production Tasks", url: "/production-tasks", icon: Factory, roles: ['admin', 'production'] },
 ];
 
 const adminItems = [
@@ -52,11 +51,17 @@ const adminItems = [
   { title: "Pricing", url: "/settings/pricing", icon: DollarSign },
 ];
 
+const formatRoleLabel = (value: string) =>
+  value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
 export function AppSidebar() {
   const { open } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
-  const { fullName, role, companyName, companyId, loading } = useUserRole();
+  const { fullName, role, roles, companyName, companyId, loading, isAdmin } = useUserRole();
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,10 +81,15 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
 
-  // Filter items based on user role
-  const visibleItems = items.filter(item =>
-    !role || item.roles.includes(role)
+  const visibleItems = items.filter(
+    (item) => roles.length === 0 || roles.some((r) => item.roles.includes(r))
   );
+  const rolesLabel =
+    roles.length > 0
+      ? roles.map(formatRoleLabel).join(", ")
+      : role
+        ? formatRoleLabel(role)
+        : null;
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -136,7 +146,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {!loading && role === 'admin' && (
+        {!loading && isAdmin && (
           <SidebarGroup>
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -172,9 +182,9 @@ export function AppSidebar() {
                   <span className="text-sm font-medium truncate">
                     {fullName || 'User'}
                   </span>
-                  {role && (
+                  {rolesLabel && (
                     <span className="text-xs text-muted-foreground capitalize truncate">
-                      {role}
+                      {rolesLabel}
                     </span>
                   )}
                 </div>
