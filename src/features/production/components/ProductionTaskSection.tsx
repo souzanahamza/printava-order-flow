@@ -385,6 +385,12 @@ export function ProductionTaskSection({ variant = "page", layout = "full", limit
     );
   };
 
+  const actionableTasks = useMemo(
+    () => tasks.filter((task) => task.assigned_to == null || task.assigned_to === user?.id),
+    [tasks, user?.id]
+  );
+  const visibleTasks = limit != null ? actionableTasks.slice(0, limit) : actionableTasks;
+
   if (authLoading || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -397,11 +403,6 @@ export function ProductionTaskSection({ variant = "page", layout = "full", limit
   const showHeader = layout === "full";
   const showStats = layout === "full" || layout === "statsOnly";
   const showTasks = layout === "full" || layout === "tasksOnly";
-  const actionableTasks = useMemo(
-    () => tasks.filter((task) => task.assigned_to == null || task.assigned_to === user?.id),
-    [tasks, user?.id]
-  );
-  const visibleTasks = limit != null ? actionableTasks.slice(0, limit) : actionableTasks;
 
   const statsCards = productionStats ? (
     <>
