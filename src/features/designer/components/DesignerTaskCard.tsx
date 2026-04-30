@@ -416,8 +416,7 @@ export function DesignerTaskCard({
       }
       onClick={handleCardSurfaceClick}
     >
-      <CardHeader className="pb-4 px-4 sm:px-6">
-        <div className="flex flex-col gap-3">
+      <CardHeader className="pb-4 px-4 sm:px-6 gap-3">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               <CardTitle className="text-lg sm:text-xl font-bold shrink-0">{orderLabel}</CardTitle>
@@ -450,7 +449,6 @@ export function DesignerTaskCard({
             <span className="font-medium text-foreground">Assigned to:</span>{" "}
             {isUnassigned ? "---" : isMine ? "You" : assigneeName ?? "---"}
           </p>
-        </div>
       </CardHeader>
 
       <CardContent className="space-y-4 px-4 sm:px-6 pb-4">

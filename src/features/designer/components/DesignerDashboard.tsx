@@ -59,10 +59,15 @@ export const DesignerDashboard = ({ variant = "page", layout = "full", limit }: 
         }
     });
 
+    const actionableDesignerTasks = useMemo(
+        () => (designerTasks ?? []).filter((t) => t.assigned_to == null || t.assigned_to === user?.id),
+        [designerTasks, user?.id]
+    );
+
     const orderIdsForAttachments = useMemo(() => {
-        const ids = designerTasks?.map((t) => t.order_id) ?? [];
+        const ids = actionableDesignerTasks.map((t) => t.order_id);
         return [...new Set(ids)].sort();
-    }, [designerTasks]);
+    }, [actionableDesignerTasks]);
 
     const {
         data: attachmentsBatch,
@@ -149,7 +154,7 @@ export const DesignerDashboard = ({ variant = "page", layout = "full", limit }: 
     const showStats = layout === "full" || layout === "statsOnly";
     const showTasks = layout === "full" || layout === "tasksOnly";
     const visibleDesignerTasks =
-        limit != null ? (designerTasks ?? []).slice(0, limit) : (designerTasks ?? []);
+        limit != null ? actionableDesignerTasks.slice(0, limit) : actionableDesignerTasks;
 
     const statsCards = authLoading || !user?.id || isLoadingDesignerTasks ? (
         <>
@@ -219,48 +224,85 @@ export const DesignerDashboard = ({ variant = "page", layout = "full", limit }: 
 
             {showStats && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">{statsCards}</div>}
 
-            {showTasks && <Card className="bg-background/60 backdrop-blur">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-primary" />
-                        Design task pool
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {isLoadingDesignerTasks ? (
-                        <div className="space-y-3">
-                            {[1, 2, 3].map((i) => (
-                                <Skeleton key={i} className="h-32 w-full" />
-                            ))}
-                        </div>
-                    ) : visibleDesignerTasks.length > 0 ? (
-                        <div className="flex flex-col gap-3">
-                            {visibleDesignerTasks.map((task) => (
-                                <DesignerTaskCard
-                                    key={task.id}
-                                    task={task}
-                                    onOpenOrderDetails={handleOpenOrderDetails}
-                                    orderAttachments={
-                                        attachmentsFetched && designerTasks.length > 0
-                                            ? attachmentsByOrderId.get(task.order_id) ?? []
-                                            : undefined
-                                    }
-                                    orderAttachmentsLoading={
-                                        Boolean(designerTasks.length) &&
-                                        orderIdsForAttachments.length > 0 &&
-                                        !attachmentsFetched
-                                    }
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-12">
+            {showTasks && (layout === "tasksOnly" ? (
+                isLoadingDesignerTasks ? (
+                    <div className="space-y-3">
+                        {[1, 2, 3].map((i) => (
+                            <Skeleton key={i} className="h-32 w-full" />
+                        ))}
+                    </div>
+                ) : visibleDesignerTasks.length > 0 ? (
+                    <>
+                        {visibleDesignerTasks.map((task) => (
+                            <DesignerTaskCard
+                                key={task.id}
+                                task={task}
+                                onOpenOrderDetails={handleOpenOrderDetails}
+                                orderAttachments={
+                                    attachmentsFetched && designerTasks.length > 0
+                                        ? attachmentsByOrderId.get(task.order_id) ?? []
+                                        : undefined
+                                }
+                                orderAttachmentsLoading={
+                                    Boolean(designerTasks.length) &&
+                                    orderIdsForAttachments.length > 0 &&
+                                    !attachmentsFetched
+                                }
+                            />
+                        ))}
+                    </>
+                ) : (
+                    <Card>
+                        <CardContent className="flex flex-col items-center justify-center py-12">
                             <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                             <p className="text-muted-foreground">No design tasks pending. Great work!</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>}
+                        </CardContent>
+                    </Card>
+                )
+            ) : (
+                <Card className="bg-background/60 backdrop-blur">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-primary" />
+                            Design task pool
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingDesignerTasks ? (
+                            <div className="space-y-3">
+                                {[1, 2, 3].map((i) => (
+                                    <Skeleton key={i} className="h-32 w-full" />
+                                ))}
+                            </div>
+                        ) : visibleDesignerTasks.length > 0 ? (
+                            <>
+                                {visibleDesignerTasks.map((task) => (
+                                    <DesignerTaskCard
+                                        key={task.id}
+                                        task={task}
+                                        onOpenOrderDetails={handleOpenOrderDetails}
+                                        orderAttachments={
+                                            attachmentsFetched && designerTasks.length > 0
+                                                ? attachmentsByOrderId.get(task.order_id) ?? []
+                                                : undefined
+                                        }
+                                        orderAttachmentsLoading={
+                                            Boolean(designerTasks.length) &&
+                                            orderIdsForAttachments.length > 0 &&
+                                            !attachmentsFetched
+                                        }
+                                    />
+                                ))}
+                            </>
+                        ) : (
+                            <div className="text-center py-12">
+                                <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                                <p className="text-muted-foreground">No design tasks pending. Great work!</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            ))}
 
             {showTasks && <OrderDetails
                 orderId={selectedOrderId || ""}
