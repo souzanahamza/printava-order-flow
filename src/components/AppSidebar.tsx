@@ -18,7 +18,6 @@ import { useLocation } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import printavaLogo from "@/assets/printava-logo.png";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {

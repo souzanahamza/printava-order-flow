@@ -14,7 +14,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import printavaLogo from '@/assets/printava-logo.png';
 export default function SignUp() {
   const [fullName, setFullName] = useState('');
   const [companyName, setCompanyName] = useState('');
