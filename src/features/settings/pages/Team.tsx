@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { RoleBadges } from '@/components/shared/RoleBadges';
 import { Card } from '@/components/ui/card';
 import {
   Table,
@@ -32,7 +32,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RolePicker } from '@/features/settings/components/RolePicker';
-import { ROLE_OPTIONS, formatRoleLabel, type AppRole } from '@/features/settings/types/teamRoles';
+import { type AppRole } from '@/features/settings/types/teamRoles';
 import { toast } from 'sonner';
 import { MoreVertical, UserPlus } from 'lucide-react';
 
@@ -418,21 +418,11 @@ export default function Team() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{member.email || 'N/A'}</TableCell>
                   <TableCell>
-                    {member.roles.length ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {member.roles.map((role) => (
-                          <Badge
-                            key={`${member.id}-${role}`}
-                            variant="outline"
-                            className={ROLE_OPTIONS.find((option) => option.role === role)?.badgeClassName}
-                          >
-                            {formatRoleLabel(role)}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
-                    )}
+                    <RoleBadges
+                      roles={member.roles}
+                      keyPrefix={member.id}
+                      empty={<span className="text-sm text-muted-foreground">—</span>}
+                    />
                   </TableCell>
                   <TableCell>
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">

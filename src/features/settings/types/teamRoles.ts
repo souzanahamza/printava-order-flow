@@ -37,7 +37,14 @@ export const ROLE_OPTIONS: RoleOption[] = [
     description: "Execute production tasks and workflow completion.",
     badgeClassName:
       "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300",
-  }
+  },
+  {
+    role: "accountant",
+    label: "Accountant",
+    description: "View financials, payments, and accounting workflow.",
+    badgeClassName:
+      "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300",
+  },
 ];
 
 export function formatRoleLabel(role: string): string {
