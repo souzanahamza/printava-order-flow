@@ -25,9 +25,10 @@ type DesignerDashboardStat = {
 export interface DesignerDashboardProps {
   variant?: "page" | "embedded";
   layout?: "full" | "statsOnly" | "tasksOnly";
+  limit?: number;
 }
 
-export const DesignerDashboard = ({ variant = "page", layout = "full" }: DesignerDashboardProps) => {
+export const DesignerDashboard = ({ variant = "page", layout = "full", limit }: DesignerDashboardProps) => {
     const { user, loading: authLoading } = useAuth();
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -147,6 +148,8 @@ export const DesignerDashboard = ({ variant = "page", layout = "full" }: Designe
     const showHeader = layout === "full";
     const showStats = layout === "full" || layout === "statsOnly";
     const showTasks = layout === "full" || layout === "tasksOnly";
+    const visibleDesignerTasks =
+        limit != null ? (designerTasks ?? []).slice(0, limit) : (designerTasks ?? []);
 
     const statsCards = authLoading || !user?.id || isLoadingDesignerTasks ? (
         <>
@@ -230,9 +233,9 @@ export const DesignerDashboard = ({ variant = "page", layout = "full" }: Designe
                                 <Skeleton key={i} className="h-32 w-full" />
                             ))}
                         </div>
-                    ) : designerTasks && designerTasks.length > 0 ? (
+                    ) : visibleDesignerTasks.length > 0 ? (
                         <div className="flex flex-col gap-3">
-                            {designerTasks.map((task) => (
+                            {visibleDesignerTasks.map((task) => (
                                 <DesignerTaskCard
                                     key={task.id}
                                     task={task}

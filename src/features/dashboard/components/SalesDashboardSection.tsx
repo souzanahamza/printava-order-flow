@@ -55,9 +55,10 @@ type SalesDashboardLayout = "full" | "statsOnly" | "tasksOnly";
 
 interface SalesDashboardSectionProps {
   layout?: SalesDashboardLayout;
+  limit?: number;
 }
 
-export function SalesDashboardSection({ layout = "full" }: SalesDashboardSectionProps) {
+export function SalesDashboardSection({ layout = "full", limit }: SalesDashboardSectionProps) {
   const navigate = useNavigate();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -193,6 +194,7 @@ export function SalesDashboardSection({ layout = "full" }: SalesDashboardSection
   const showHeader = layout === "full";
   const showStats = layout === "full" || layout === "statsOnly";
   const showTasks = layout === "full" || layout === "tasksOnly";
+  const visibleRecentOrders = limit != null ? (recentOrders ?? []).slice(0, limit) : (recentOrders ?? []);
 
   const statsCards = isLoadingStats ? (
     <>
@@ -256,9 +258,9 @@ export function SalesDashboardSection({ layout = "full" }: SalesDashboardSection
                 <Skeleton key={i} className="h-32 w-full" />
               ))}
             </div>
-          ) : recentOrders && recentOrders.length > 0 ? (
+          ) : visibleRecentOrders.length > 0 ? (
             <div className="space-y-4">
-              {recentOrders.map((order) => (
+              {visibleRecentOrders.map((order) => (
                 <OrderCard
                   key={order.id}
                   id={order.id}

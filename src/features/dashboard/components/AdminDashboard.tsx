@@ -155,9 +155,10 @@ interface AdminDashboardProps {
   currency: string | undefined;
   baseCurrencySymbol: string | null | undefined;
   layout?: "full" | "statsOnly" | "tasksOnly";
+  limit?: number;
 }
 
-export function AdminDashboard({ companyId, currency, baseCurrencySymbol, layout = "full" }: AdminDashboardProps) {
+export function AdminDashboard({ companyId, currency, baseCurrencySymbol, layout = "full", limit }: AdminDashboardProps) {
   const navigate = useNavigate();
   const { data: statuses } = useOrderStatuses();
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -395,6 +396,8 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol, layout
   const showHeader = layout === "full";
   const showStats = layout === "full" || layout === "statsOnly";
   const showTaskSections = layout === "full" || layout === "tasksOnly";
+  const visibleUrgentTasks = limit != null ? (urgentTasks ?? []).slice(0, limit) : (urgentTasks ?? []);
+  const visibleRecentOrders = limit != null ? (recentOrders ?? []).slice(0, limit) : (recentOrders ?? []);
 
   const statsCards = statsLoading ? (
     <>
@@ -530,7 +533,7 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol, layout
         <CardContent>
           {urgentLoading ? (
             <Skeleton className="h-32 w-full" />
-          ) : !urgentTasks?.length ? (
+          ) : !visibleUrgentTasks.length ? (
             <p className="py-6 text-center text-sm text-muted-foreground">No open tasks for orders due today.</p>
           ) : (
             <Table>
@@ -544,7 +547,7 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol, layout
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {urgentTasks.map((t) => (
+                {visibleUrgentTasks.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell className="font-medium">
                       {formatOrderNo(t.order?.order_number ?? null, t.order_id)}
@@ -614,9 +617,9 @@ export function AdminDashboard({ companyId, currency, baseCurrencySymbol, layout
                 <Skeleton key={i} className="h-32 w-full" />
               ))}
             </div>
-          ) : recentOrders && recentOrders.length > 0 ? (
+          ) : visibleRecentOrders.length > 0 ? (
             <div className="space-y-4">
-              {recentOrders.map((order) => (
+              {visibleRecentOrders.map((order) => (
                 <OrderCard
                   key={order.id}
                   id={order.id}

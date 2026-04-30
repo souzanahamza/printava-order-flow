@@ -170,9 +170,10 @@ function ProductionFileLink({ file }: { file: OrderFile }) {
 export interface ProductionTaskSectionProps {
   variant?: "page" | "embedded";
   layout?: "full" | "statsOnly" | "tasksOnly";
+  limit?: number;
 }
 
-export function ProductionTaskSection({ variant = "page", layout = "full" }: ProductionTaskSectionProps) {
+export function ProductionTaskSection({ variant = "page", layout = "full", limit }: ProductionTaskSectionProps) {
   const queryClient = useQueryClient();
   const { data: taskStatuses } = useTaskStatuses();
   const { user, loading: authLoading } = useAuth();
@@ -396,6 +397,7 @@ export function ProductionTaskSection({ variant = "page", layout = "full" }: Pro
   const showHeader = layout === "full";
   const showStats = layout === "full" || layout === "statsOnly";
   const showTasks = layout === "full" || layout === "tasksOnly";
+  const visibleTasks = limit != null ? tasks.slice(0, limit) : tasks;
 
   const statsCards = productionStats ? (
     <>
@@ -446,7 +448,7 @@ export function ProductionTaskSection({ variant = "page", layout = "full" }: Pro
         </div>
       )}
 
-      {showTasks && (tasks.length === 0 ? (
+      {showTasks && (visibleTasks.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <CheckCircle className="h-16 w-16 text-muted-foreground mb-4" />
@@ -456,7 +458,7 @@ export function ProductionTaskSection({ variant = "page", layout = "full" }: Pro
         </Card>
       ) : (
         <div className="space-y-4 px-2 sm:px-0">
-          {tasks.map((task) => {
+          {visibleTasks.map((task) => {
             const order = task.order;
             if (!order) return null;
 

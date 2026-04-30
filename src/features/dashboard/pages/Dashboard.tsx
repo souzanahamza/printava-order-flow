@@ -1,12 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 import { AdminDashboard } from "@/features/dashboard/components/AdminDashboard";
 import { SalesDashboardSection } from "@/features/dashboard/components/SalesDashboardSection";
 import { DesignerDashboard } from "@/features/designer/components/DesignerDashboard";
 import { ProductionTaskSection } from "@/features/production/components/ProductionTaskSection";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const Dashboard = () => {
@@ -132,7 +135,24 @@ const Dashboard = () => {
               {(showAdminBlock || showSalesBlock) && (
                 <AccordionItem value="recent-orders-approvals">
                   <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                    <span className="text-lg font-semibold">Recent Orders & Approvals</span>
+                    <div className="flex items-center justify-between w-full gap-2">
+                      <span className="text-lg font-semibold">Recent Orders & Approvals</span>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-muted-foreground"
+                      >
+                        <Link
+                          to="/orders"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          See All
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-6 pb-6">
                     <div className="space-y-6">
@@ -142,9 +162,10 @@ const Dashboard = () => {
                           currency={currency}
                           baseCurrencySymbol={companyProfile?.base_currency?.symbol}
                           layout="tasksOnly"
+                          limit={3}
                         />
                       )}
-                      {showSalesBlock && <SalesDashboardSection layout="tasksOnly" />}
+                      {showSalesBlock && <SalesDashboardSection layout="tasksOnly" limit={3} />}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -153,10 +174,27 @@ const Dashboard = () => {
               {isDesigner && (
                 <AccordionItem value="design-task-pool">
                   <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                    <span className="text-lg font-semibold">🎨 Design Task Pool</span>
+                    <div className="flex items-center justify-between w-full gap-2">
+                      <span className="text-lg font-semibold">🎨 Design Task Pool</span>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-muted-foreground"
+                      >
+                        <Link
+                          to="/design-tasks"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          See All
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-6 pb-6">
-                    <DesignerDashboard variant={designerStacked ? "embedded" : "page"} layout="tasksOnly" />
+                    <DesignerDashboard variant={designerStacked ? "embedded" : "page"} layout="tasksOnly" limit={3} />
                   </AccordionContent>
                 </AccordionItem>
               )}
@@ -164,10 +202,27 @@ const Dashboard = () => {
               {isProduction && (
                 <AccordionItem value="production-task-queue">
                   <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                    <span className="text-lg font-semibold">🏭 Production Task Queue</span>
+                    <div className="flex items-center justify-between w-full gap-2">
+                      <span className="text-lg font-semibold">🏭 Production Task Queue</span>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-muted-foreground"
+                      >
+                        <Link
+                          to="/production-tasks"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          See All
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </div>
                   </AccordionTrigger>
                   <AccordionContent className="px-6 pb-6">
-                    <ProductionTaskSection variant={productionStacked ? "embedded" : "page"} layout="tasksOnly" />
+                    <ProductionTaskSection variant={productionStacked ? "embedded" : "page"} layout="tasksOnly" limit={3} />
                   </AccordionContent>
                 </AccordionItem>
               )}
