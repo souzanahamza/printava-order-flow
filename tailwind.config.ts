@@ -91,11 +91,43 @@ export default {
   				to: {
   					height: '0'
   				}
+  			},
+  			'auth-panel-in': {
+  				from: { opacity: '0', transform: 'translateX(28px)' },
+  				to: { opacity: '1', transform: 'translateX(0)' }
+  			},
+  			'auth-mesh-drift': {
+  				'0%, 100%': { transform: 'translate(0%, 0%) scale(1)' },
+  				'50%': { transform: 'translate(4%, -3%) scale(1.05)' }
+  			},
+  			'auth-float': {
+  				'0%, 100%': { transform: 'translateY(0)' },
+  				'50%': { transform: 'translateY(-10px)' }
+  			},
+  			'auth-float-reverse': {
+  				'0%, 100%': { transform: 'translateY(0)' },
+  				'50%': { transform: 'translateY(9px)' }
+  			},
+  			'auth-card-breathe': {
+  				'0%, 100%': { transform: 'scale(1)' },
+  				'50%': { transform: 'scale(1.015)' }
+  			},
+  			'auth-shimmer': {
+  				'0%': { opacity: '0.55' },
+  				'50%': { opacity: '1' },
+  				'100%': { opacity: '0.55' }
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'auth-panel-in': 'auth-panel-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
+  			'auth-mesh-drift': 'auth-mesh-drift 22s ease-in-out infinite',
+  			'auth-mesh-drift-slow': 'auth-mesh-drift 30s ease-in-out infinite reverse',
+  			'auth-float': 'auth-float 5.5s ease-in-out infinite',
+  			'auth-float-reverse': 'auth-float-reverse 6.5s ease-in-out infinite',
+  			'auth-card-breathe': 'auth-card-breathe 7s ease-in-out infinite',
+  			'auth-shimmer': 'auth-shimmer 3.5s ease-in-out infinite'
   		},
   		boxShadow: {
   			'2xs': 'var(--shadow-2xs)',
