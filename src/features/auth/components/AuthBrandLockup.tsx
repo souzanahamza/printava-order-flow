@@ -17,16 +17,16 @@ export function AuthBrandLockup({ className, logoClassName }: AuthBrandLockupPro
       {!imgFailed ? (
         <img
           src={brandLogo}
-          alt="Printava"
-          className={cn('h-16 w-auto object-contain sm:h-20', logoClassName)}
+          alt="Print Flow OMS"
+          className={cn('h-20 w-auto object-contain sm:h-24', logoClassName)}
           onError={() => setImgFailed(true)}
         />
       ) : (
         <>
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20 sm:h-20 sm:w-20">
-            <Printer className="h-8 w-8 sm:h-10 sm:w-10" aria-hidden />
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20 sm:h-24 sm:w-24">
+            <Printer className="h-10 w-10 sm:h-12 sm:w-12" aria-hidden />
           </div>
-          <span className="font-bold text-2xl tracking-tight text-foreground sm:text-3xl">Printava</span>
+          <span className="font-bold text-3xl tracking-tight text-foreground sm:text-4xl">Printava</span>
         </>
       )}
     </div>
